@@ -1,0 +1,33 @@
+import { FormEvent, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { signUp } from '../lib/auth'
+
+export function SignupPage() {
+  const navigate = useNavigate()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    const { error: authError } = await signUp(email, password)
+    if (authError) return setError(authError.message)
+    navigate('/')
+  }
+
+  return (
+    <main className="flex min-h-screen items-center justify-center p-4">
+      <section className="app-card w-full max-w-md p-6">
+        <h1 className="serif-reading text-3xl text-[#302a4d]">Create your journal</h1>
+        <p className="mt-1 text-sm text-[#6a7385]">Start your voice-first reflection ritual.</p>
+        <form onSubmit={handleSubmit} className="mt-5 space-y-3">
+          <input className="w-full rounded-2xl bg-[#f8f2ec] p-3 outline-none" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input className="w-full rounded-2xl bg-[#f8f2ec] p-3 outline-none" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          {error && <p className="text-sm text-[#af6b73]">{error}</p>}
+          <button className="premium-button w-full">Sign up</button>
+        </form>
+        <p className="mt-4 text-sm text-[#697083]">Already have an account? <Link to="/login" className="text-[#4e478f] underline">Log in</Link></p>
+      </section>
+    </main>
+  )
+}
