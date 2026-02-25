@@ -1,0 +1,14 @@
+from collections.abc import AsyncGenerator
+
+from decouple import config
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+DATABASE_URL = config("DATABASE_URL", default="postgresql+asyncpg://user:password@localhost:5432/echo")
+
+engine = create_async_engine(DATABASE_URL, future=True, echo=False)
+AsyncSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    async with AsyncSessionLocal() as session:
+        yield session
