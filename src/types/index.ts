@@ -53,6 +53,14 @@ export interface PatternInsight {
   dismissed: boolean
 }
 
+export interface Insight {
+  id: string
+  entry_id?: string
+  content: string
+  insight_type?: string
+  created_at?: string
+}
+
 export interface ChapterReport {
   id: string
   month: string
