@@ -127,8 +127,8 @@ export function SettingsPage() {
 
       <section className="app-card space-y-4 p-5">
         <h3 className="text-lg font-semibold">Preferences</h3>
-        <label className="flex items-center justify-between rounded-2xl bg-[#f8f2ec] p-3"><span>Weekly summary email</span><input type="checkbox" checked={weeklyEmail} onChange={(event) => setWeeklyEmail(event.target.checked)} /></label>
-        <label className="flex items-center justify-between rounded-2xl bg-[#f8f2ec] p-3"><span>Insight nudges</span><input type="checkbox" checked={insightNudges} onChange={(event) => setInsightNudges(event.target.checked)} /></label>
+        <label className="flex items-center justify-between rounded-2xl bg-[#f8f2ec] p-3"><span>Weekly summary email</span><input id="weekly-email" name="weekly-email" type="checkbox" checked={weeklyEmail} onChange={(event) => setWeeklyEmail(event.target.checked)} /></label>
+        <label className="flex items-center justify-between rounded-2xl bg-[#f8f2ec] p-3"><span>Insight nudges</span><input id="insight-nudges" name="insight-nudges" type="checkbox" checked={insightNudges} onChange={(event) => setInsightNudges(event.target.checked)} /></label>
       </section>
 
       <section className="app-card space-y-3 p-5">

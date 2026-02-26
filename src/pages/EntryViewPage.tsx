@@ -91,6 +91,8 @@ export function EntryViewPage() {
         {editingTitle ? (
           <input
             ref={titleInputRef}
+            id="entry-title"
+            name="entry-title"
             className="serif-reading w-full bg-transparent text-4xl text-[#2d2948] outline-none border-b-2 border-[#7f78d4]"
             value={titleDraft}
             placeholder="Untitled Entry"
@@ -127,7 +129,7 @@ export function EntryViewPage() {
       <section className="app-card p-5">
         <h3 className="mb-2 text-sm font-semibold text-[#636b7e]">Edit entry</h3>
         <form onSubmit={(event) => void saveEdits(event)} className="space-y-3">
-          <textarea className="min-h-56 w-full rounded-2xl bg-[#f8f3ed] p-4 text-[#3d4254] outline-none" value={draft} onChange={(event) => setDraft(event.target.value)} />
+          <textarea id="entry-body" name="entry-body" className="min-h-56 w-full rounded-2xl bg-[#f8f3ed] p-4 text-[#3d4254] outline-none" value={draft} onChange={(event) => setDraft(event.target.value)} />
           <button className="premium-button">Save changes</button>
           {saveState && <p className="text-sm text-[#636b7e]">{saveState}</p>}
         </form>
