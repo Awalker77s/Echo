@@ -108,7 +108,7 @@ export function IdeasVaultPage() {
           </button>
         </div>
         {error && <ErrorState message={error} onAction={() => void load()} actionLabel="Try again" />}
-        <input className="app-card w-full px-4 py-3 text-sm outline-none" placeholder="Search ideas and details..." value={query} onChange={(event) => setQuery(event.target.value)} />
+        <input id="ideas-search" name="ideas-search" className="app-card w-full px-4 py-3 text-sm outline-none" placeholder="Search ideas and details..." value={query} onChange={(event) => setQuery(event.target.value)} />
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
           {categories.map((value) => (
             <button key={value} onClick={() => setCategory(value)} className={`soft-pill whitespace-nowrap capitalize ${category === value ? 'bg-[#e6e1fb] text-[#4a438b]' : ''}`}>

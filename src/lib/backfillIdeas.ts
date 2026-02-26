@@ -20,6 +20,8 @@ Look for:
 Return JSON with an ideas array. If no clear ideas are found, still try to surface at least one actionable suggestion based on what the user is thinking about.`
 
 async function callOpenAI(entryText: string, apiKey: string): Promise<ParsedIdeas> {
+  console.log('1. Entry text being sent to OpenAI:', entryText)
+
   const body = {
     model: 'gpt-4o',
     temperature: 0.4,
@@ -38,6 +40,7 @@ async function callOpenAI(entryText: string, apiKey: string): Promise<ParsedIdea
 
   if (!response.ok) {
     const text = await response.text()
+    console.error('2. Raw OpenAI error response:', text)
     throw new Error(`OpenAI API failed (${response.status}): ${text}`)
   }
 
@@ -48,12 +51,18 @@ async function callOpenAI(entryText: string, apiKey: string): Promise<ParsedIdea
     }>
   }
   const payload = await response.json() as ResponsePayload
+  console.log('2. Raw OpenAI response:', JSON.stringify(payload, null, 2))
+
   const outputText =
     payload.output?.[0]?.content?.find((c) => c.type === 'output_text')?.text ?? ''
+  console.log('2b. Extracted output text:', outputText)
 
   try {
-    return JSON.parse(outputText) as ParsedIdeas
-  } catch {
+    const parsed = JSON.parse(outputText) as ParsedIdeas
+    console.log('3. Parsed ideas array:', parsed.ideas)
+    return parsed
+  } catch (parseErr) {
+    console.error('3. JSON parse failed — outputText was:', outputText, 'Error:', parseErr)
     return { ideas: [] }
   }
 }
@@ -85,6 +94,8 @@ export async function backfillIdeas(): Promise<{ processed: number; created: num
     throw new Error('Failed to fetch journal entries: ' + entriesErr.message)
   }
 
+  console.log('[backfillIdeas] Total journal entries fetched:', entries?.length ?? 0)
+
   if (!entries || entries.length === 0) {
     return { processed: 0, created: 0, message: 'No journal entries found.' }
   }
@@ -100,10 +111,13 @@ export async function backfillIdeas(): Promise<{ processed: number; created: num
   }
 
   const coveredEntryIds = new Set((existingIdeas ?? []).map((r: { entry_id: string }) => r.entry_id))
+  console.log('[backfillIdeas] Entries already covered by existing ideas:', coveredEntryIds.size)
 
   const uncoveredEntries = entries.filter(
     (e: { id: string }) => !coveredEntryIds.has(e.id),
   ) as Array<{ id: string; cleaned_entry?: string; raw_transcript?: string; entry_title?: string }>
+
+  console.log('[backfillIdeas] Uncovered entries to process:', uncoveredEntries.length)
 
   if (uncoveredEntries.length === 0) {
     return { processed: 0, created: 0, message: 'All entries already have ideas.' }
@@ -114,7 +128,11 @@ export async function backfillIdeas(): Promise<{ processed: number; created: num
 
   for (const entry of uncoveredEntries) {
     const entryText = entry.cleaned_entry || entry.raw_transcript || ''
-    if (!entryText.trim()) continue
+    console.log(`[backfillIdeas] Entry ${entry.id} — cleaned_entry length: ${entry.cleaned_entry?.length ?? 0}, raw_transcript length: ${entry.raw_transcript?.length ?? 0}, combined text length: ${entryText.length}`)
+    if (!entryText.trim()) {
+      console.warn(`[backfillIdeas] Skipping entry ${entry.id} — text is empty or whitespace-only`)
+      continue
+    }
 
     let ideasJson: ParsedIdeas = { ideas: [] }
     try {
@@ -125,6 +143,7 @@ export async function backfillIdeas(): Promise<{ processed: number; created: num
     }
 
     if (ideasJson.ideas.length === 0) {
+      console.warn(`[backfillIdeas] Entry ${entry.id} — OpenAI returned 0 ideas`)
       totalProcessed++
       continue
     }
@@ -137,10 +156,12 @@ export async function backfillIdeas(): Promise<{ processed: number; created: num
       idea_type: idea.idea_type ?? 'concept',
       details: idea.details ?? '',
     }))
+    console.log(`[backfillIdeas] Entry ${entry.id} — attempting to insert ${toInsert.length} ideas:`, JSON.stringify(toInsert, null, 2))
 
-    const { error: insertErr } = await supabase.from('ideas').insert(toInsert)
+    const { data: insertData, error: insertErr } = await supabase.from('ideas').insert(toInsert).select('id')
+    console.log('4. Supabase insert result:', { insertedRows: insertData, error: insertErr })
     if (insertErr) {
-      console.error('[backfillIdeas] Insert failed for entry', entry.id, insertErr.message)
+      console.error('[backfillIdeas] Insert failed for entry', entry.id, insertErr)
     } else {
       totalCreated += toInsert.length
     }
