@@ -15,7 +15,7 @@ const desktopLinks = [
   ...links,
   { to: '/insights', label: 'Insights', icon: '◈' },
   { to: '/chapters', label: 'Chapters', icon: '❦' },
-  { to: '/gifts', label: 'Gifts', icon: '✧' },
+  { to: '/subscription', label: 'Subscription', icon: '✧' },
   { to: '/memoir-print', label: 'Print', icon: '☰' },
 ]
 

@@ -9,7 +9,7 @@ const giftPlans = [
   { value: 'lifetime', label: 'Lifetime (£99 one-time)' },
 ]
 
-export function GiftSubscriptionsPage() {
+export function SubscriptionPage() {
   const [plan, setPlan] = useState('core')
   const [code, setCode] = useState('')
   const [message, setMessage] = useState('')
@@ -56,7 +56,7 @@ export function GiftSubscriptionsPage() {
 
       <section className="app-card p-5">
         <h3 className="text-lg font-semibold">Send a thoughtful gift</h3>
-        <p className="mt-1 text-sm text-[#6b7386]">Choose a plan and we’ll generate a private redemption code after checkout.</p>
+        <p className="mt-1 text-sm text-[#6b7386]">Choose a plan and we'll generate a private redemption code after checkout.</p>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <select className="rounded-2xl bg-[#f8f2ec] px-3 py-2" value={plan} onChange={(event) => setPlan(event.target.value)}>
             {giftPlans.map((giftPlan) => <option key={giftPlan.value} value={giftPlan.value}>{giftPlan.label}</option>)}
