@@ -6,6 +6,7 @@ import { corsHeaders } from '../_shared/cors.ts'
 interface ParsedJournal { title: string; entry: string }
 interface ParsedMood { mood_primary: string; mood_score: number; mood_tags: string[]; mood_level: string }
 interface ParsedIdeas { ideas: Array<{ content: string; category: string; idea_type: string; details: string }> }
+interface ParsedInsights { insights: Array<{ content: string; insight_type: string }> }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -130,20 +131,30 @@ Valid values for idea_type: "business_idea", "problem_solution", "concept", "act
 
 If no ideas are found, return exactly: {"ideas": []}`
 
-    console.log('[process-recording] Sending 3 parallel OpenAI Responses API calls (journal, mood, ideas)')
-    const [journalText, moodText, ideasText] = await Promise.all([
+    const insightsSystemPrompt = `You are a personal growth and reflection assistant. Analyze this journal entry and generate meaningful insights about the person's thoughts, behaviors, and patterns. For each insight return:
+- content: a thoughtful, personalized observation or piece of advice (2-3 sentences)
+- insight_type: one of "pattern", "reflection", "advice", "growth", "warning"
+
+Return ONLY a valid JSON object in this format with no markdown fences:
+{ "insights": [ { "content": "...", "insight_type": "..." } ] }`
+
+    console.log('[process-recording] Sending 4 parallel OpenAI Responses API calls (journal, mood, ideas, insights)')
+    const [journalText, moodText, ideasText, insightsText] = await Promise.all([
       callOpenAIResponses({ model: 'gpt-4o', temperature: 0.7, apiKey: openAiKey, input: [{ role: 'system', content: 'Transform the transcript into JSON with keys title and entry.' }, { role: 'user', content: transcript }] }),
       callOpenAIResponses({ model: 'gpt-4o', temperature: 0.3, apiKey: openAiKey, input: [{ role: 'system', content: moodSystemPrompt }, { role: 'user', content: transcript }] }),
       callOpenAIResponses({ model: 'gpt-4o', temperature: 0.4, apiKey: openAiKey, input: [{ role: 'system', content: ideasSystemPrompt }, { role: 'user', content: transcript }] }),
+      callOpenAIResponses({ model: 'gpt-4o', temperature: 0.4, apiKey: openAiKey, input: [{ role: 'system', content: insightsSystemPrompt }, { role: 'user', content: transcript }] }),
     ])
     console.log('[process-recording] OpenAI responses received', {
       journalTextLength: journalText.length,
       moodTextLength: moodText.length,
       ideasTextLength: ideasText.length,
+      insightsTextLength: insightsText.length,
       ideasTextPreview: ideasText.slice(0, 300),
     })
     // Log the full raw ideas response so we can inspect exactly what OpenAI returned
     console.log('[process-recording] Raw ideas response from OpenAI:', ideasText)
+    console.log('[process-recording] Raw insights response from OpenAI:', insightsText)
 
     const safeParse = <T>(text: string, fallback: T): T => {
       try {
@@ -173,12 +184,27 @@ If no ideas are found, return exactly: {"ideas": []}`
     } catch (parseErr) {
       console.error('[process-recording] Failed to parse ideas JSON', { error: String(parseErr), ideasText })
     }
+    // Parse insights with fence stripping applied proactively
+    let insightsJson: ParsedInsights = { insights: [] }
+    try {
+      const cleanedInsightsText = insightsText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+      insightsJson = JSON.parse(cleanedInsightsText) as ParsedInsights
+      if (!Array.isArray(insightsJson.insights)) {
+        console.error('[process-recording] Parsed insights JSON is missing the "insights" array', { insightsJson })
+        insightsJson = { insights: [] }
+      }
+    } catch (parseErr) {
+      console.error('[process-recording] Failed to parse insights JSON', { error: String(parseErr), insightsText })
+    }
+
     console.log('[process-recording] Parsed results', {
       journalTitle: journalJson.title,
       moodPrimary: moodJson.mood_primary,
       moodScore: moodJson.mood_score,
       ideasCount: ideasJson.ideas.length,
       ideasPreview: ideasJson.ideas.slice(0, 2).map((i) => i.content),
+      insightsCount: insightsJson.insights.length,
+      insightsPreview: insightsJson.insights.slice(0, 2).map((i) => i.content),
     })
 
     // Ensure mood_level is always populated — derive from mood_score if the AI omitted it
@@ -250,6 +276,34 @@ If no ideas are found, return exactly: {"ideas": []}`
       throw new Error('Failed to save extracted ideas.')
     }
 
+    const insightsToInsert = insightsJson.insights.map((insight) => ({
+      user_id: userId,
+      entry_id: entry.id,
+      content: insight.content,
+      insight_type: insight.insight_type ?? 'reflection',
+    }))
+    console.log('[process-recording] Insights array before Supabase insert:', JSON.stringify(insightsToInsert))
+    console.log('[process-recording] Inserting insights', { count: insightsToInsert.length, entryId: entry.id })
+    const { data: insertedInsights, error: insightsError } = insightsToInsert.length
+      ? await supabase.from('insights').insert(insightsToInsert).select('id,content,insight_type')
+      : { data: [], error: null }
+    console.log('[process-recording] Supabase insights insert result', {
+      insertedCount: insertedInsights?.length ?? 0,
+      error: insightsError?.message ?? null,
+      code: insightsError?.code ?? null,
+      hint: insightsError?.hint ?? null,
+    })
+
+    if (insightsError) {
+      console.error('[process-recording] Insights insert failed', {
+        message: insightsError.message,
+        code: insightsError.code,
+        hint: insightsError.hint,
+        entryId: entry.id,
+      })
+      // Non-fatal: log but don't throw so the entry is still returned
+    }
+
     return new Response(JSON.stringify({
       id: entry.id,
       entry_title: entry.entry_title,
@@ -260,6 +314,7 @@ If no ideas are found, return exactly: {"ideas": []}`
       mood_level: entry.mood_level,
       themes: entry.themes,
       ideas: insertedIdeas ?? [],
+      insights: insertedInsights ?? [],
       duration_seconds: entry.duration_seconds,
       recorded_at: entry.recorded_at,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })

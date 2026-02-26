@@ -1,48 +1,69 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { ErrorState } from '../components/ErrorState'
 import { FeatureGate } from '../components/FeatureGate'
 import { LoadingSkeleton } from '../components/LoadingSkeleton'
 import { useUserPlan } from '../hooks/useUserPlan'
+import { backfillInsights } from '../lib/backfillInsights'
 import { supabase } from '../lib/supabase'
-import type { PatternInsight } from '../types'
+import type { Insight } from '../types'
+
+const insightTypeConfig: Record<string, { label: string; color: string; bg: string }> = {
+  pattern: { label: 'Pattern', color: '#6b4c9a', bg: '#ede6fa' },
+  reflection: { label: 'Reflection', color: '#2d7d6f', bg: '#daf2ed' },
+  advice: { label: 'Advice', color: '#3d6b8a', bg: '#d9edf8' },
+  growth: { label: 'Growth', color: '#3a6b3a', bg: '#d9f0d9' },
+  warning: { label: 'Warning', color: '#8a4a2d', bg: '#f8e2d9' },
+}
+
+function getInsightTypeStyle(insightType?: string) {
+  if (!insightType || !insightTypeConfig[insightType]) return null
+  return insightTypeConfig[insightType]
+}
 
 export function InsightsPage() {
-  const [patterns, setPatterns] = useState<PatternInsight[]>([])
+  const [insights, setInsights] = useState<Insight[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [backfilling, setBackfilling] = useState(false)
+  const [backfillResult, setBackfillResult] = useState<string | null>(null)
   const { plan, loading: planLoading, error: planError } = useUserPlan()
 
-  async function loadPatterns() {
+  async function load() {
     if (!supabase) {
       setError('Supabase is not configured.')
       setLoading(false)
       return
     }
     setLoading(true)
-    const { data, error: queryError } = await supabase.from('patterns').select('*').eq('dismissed', false).order('confidence', { ascending: false })
+    const { data, error: queryError } = await supabase
+      .from('insights')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(300)
     if (queryError) {
-      console.error('[InsightsPage] Failed to load patterns:', queryError.message, queryError.code)
+      console.error('[InsightsPage] Failed to load insights:', queryError.message, queryError.code)
       setError('Unable to load insights right now.')
-    }
-    else {
-      setPatterns((data as PatternInsight[]) ?? [])
+    } else {
+      setInsights((data as Insight[]) ?? [])
       setError(null)
     }
     setLoading(false)
   }
 
-  useEffect(() => { void loadPatterns() }, [])
+  useEffect(() => { void load() }, [])
 
-  async function dismissPattern(id: string) {
-    if (!supabase) return
-    const { error: dismissError } = await supabase.from('patterns').update({ dismissed: true }).eq('id', id)
-    if (dismissError) {
-      console.error('[InsightsPage] Failed to dismiss pattern:', dismissError.message, dismissError.code)
-      setError('Could not dismiss insight. Please try again.')
-      return
+  async function runBackfill() {
+    setBackfilling(true)
+    setBackfillResult(null)
+    setError(null)
+    try {
+      const result = await backfillInsights()
+      setBackfillResult(result.message)
+      if (result.created > 0) await load()
+    } catch (err) {
+      setError('Generation failed: ' + (err instanceof Error ? err.message : String(err)))
     }
-    setPatterns((current) => current.filter((pattern) => pattern.id !== id))
+    setBackfilling(false)
   }
 
   if (planLoading || loading) return <LoadingSkeleton lines={5} />
@@ -51,49 +72,75 @@ export function InsightsPage() {
   return (
     <FeatureGate userPlan={plan} requiredPlan="memoir" featureName="Insights">
       <main className="space-y-4">
-        <div>
-          <h2 className="serif-reading text-3xl text-[#302a4c]">Gentle insights</h2>
-          <p className="mt-1 text-sm text-[#6c7386]">Thoughtful reflections and guidance drawn from patterns in your recent journal entries.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="serif-reading text-3xl text-[#302a4c]">Insights</h2>
+            <p className="mt-1 text-sm text-[#6c7386]">Thoughtful observations and personal growth insights drawn from your journal entries.</p>
+          </div>
+          <button
+            onClick={() => void load()}
+            disabled={loading}
+            className="soft-pill shrink-0 whitespace-nowrap disabled:opacity-50"
+            title="Reload insights from Supabase"
+          >
+            {loading ? 'Loading…' : '↻ Refresh'}
+          </button>
         </div>
-        {error && <ErrorState message={error} onAction={() => void loadPatterns()} actionLabel="Try again" />}
 
-        {patterns.length === 0 && <div className="app-card p-4 text-[#6b7386]">No active insights yet. Keep journaling to uncover patterns.</div>}
+        {error && <ErrorState message={error} onAction={() => void load()} actionLabel="Try again" />}
 
-        <div className="space-y-5">
-          {patterns.map((pattern) => {
-            const strength = Math.max(8, Math.round((pattern.confidence ?? 0.1) * 100))
+        {backfillResult && (
+          <div className="app-card p-3 text-sm text-[#2d7d6f]">{backfillResult}</div>
+        )}
+
+        {insights.length === 0 && !loading && (
+          <div className="app-card space-y-3 p-5 text-center">
+            <p className="text-[#6b7386]">No insights yet — record a journal entry to get started.</p>
+            <div className="space-y-2">
+              <p className="text-xs text-[#9196a6]">Already have journal entries? Use the button below to generate insights from them.</p>
+              <button
+                onClick={() => void runBackfill()}
+                disabled={backfilling}
+                className="premium-button disabled:opacity-50"
+              >
+                {backfilling ? 'Generating insights…' : 'Generate insights from existing entries'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {insights.length > 0 && (
+          <div className="flex justify-end">
+            <button
+              onClick={() => void runBackfill()}
+              disabled={backfilling}
+              className="soft-pill whitespace-nowrap disabled:opacity-50"
+            >
+              {backfilling ? 'Generating…' : '✦ Generate new insights'}
+            </button>
+          </div>
+        )}
+
+        <ul className="space-y-4">
+          {insights.map((insight) => {
+            const typeStyle = getInsightTypeStyle(insight.insight_type)
             return (
-              <article key={pattern.id} className="app-card overflow-hidden bg-gradient-to-br from-[#efeaff] to-[#fff7ef]">
+              <li key={insight.id} className="app-card overflow-hidden bg-gradient-to-br from-[#efeaff] to-[#fff7ef]">
                 <div className="p-5">
-                  <p className="text-xs uppercase tracking-[0.14em] text-[#7c7f96]">{pattern.pattern_type.replace(/_/g, ' ')}</p>
-                  <h3 className="mt-2 text-lg font-semibold text-[#2f3350]">{pattern.description}</h3>
-
-                  <div className="mt-3 h-2 rounded-full bg-white/80"><div className="h-full rounded-full bg-[#7d74d2]" style={{ width: `${strength}%` }} /></div>
-                  <p className="mt-2 text-xs text-[#757b90]">Confidence appears {strength > 66 ? 'strong' : strength > 33 ? 'moderate' : 'gentle'}.</p>
-
-                  {/* Reflective advice section */}
-                  {pattern.advice && (
-                    <div className="mt-4 rounded-2xl bg-gradient-to-r from-[#f0edff] to-[#fef8f0] p-4">
-                      <p className="mb-1 text-xs font-medium uppercase tracking-[0.12em] text-[#7d74d2]">Reflection</p>
-                      <p className="text-sm leading-relaxed text-[#3d3660]">{pattern.advice}</p>
-                    </div>
+                  {typeStyle && (
+                    <span
+                      className="mb-3 inline-block rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider"
+                      style={{ color: typeStyle.color, backgroundColor: typeStyle.bg }}
+                    >
+                      {typeStyle.label}
+                    </span>
                   )}
-
-                  {/* Evidence quotes */}
-                  <div className="mt-3 space-y-2 text-sm text-[#5f667a]">
-                    {pattern.evidence?.map((item, index) => (
-                      <div key={`${pattern.id}-${index}`} className="rounded-2xl bg-white/65 p-3">
-                        <Link className="font-medium text-[#4b438f] underline" to={`/entries/${item.entry_id}`}>Show Me</Link>
-                        <p className="mt-1 italic">&ldquo;{item.quote}&rdquo;</p>
-                      </div>
-                    ))}
-                  </div>
-                  <button onClick={() => void dismissPattern(pattern.id)} className="soft-pill mt-3">Dismiss insight</button>
+                  <p className="text-sm leading-relaxed text-[#3d3660]">{insight.content}</p>
                 </div>
-              </article>
+              </li>
             )
           })}
-        </div>
+        </ul>
       </main>
     </FeatureGate>
   )
