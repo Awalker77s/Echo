@@ -10,6 +10,13 @@
     <meta property="og:description" content="Speak. Remember. Understand yourself." />
     <meta property="og:type" content="website" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      (function () {
+        const storedTheme = localStorage.getItem('theme')
+        const theme = storedTheme === 'light' ? 'light' : 'dark'
+        document.documentElement.classList.toggle('dark', theme === 'dark')
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

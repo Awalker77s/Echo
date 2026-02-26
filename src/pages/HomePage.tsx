@@ -71,7 +71,7 @@ export function HomePage() {
     return (
       <main className="flex min-h-[72vh] flex-col items-center justify-center gap-6 text-center">
         <div className="h-16 w-16 rounded-full bg-[#dcd6ff]" style={{ animation: 'breathe 1.8s ease-in-out infinite' }} />
-        <h2 className="serif-reading text-3xl text-[#312a4f]">{messages[messageIndex]}</h2>
+        <h2 className="serif-reading text-3xl text-[#312a4f] dark:text-gray-100">{messages[messageIndex]}</h2>
         <p className="text-[#677087]">We’re gently shaping your entry and insights.</p>
       </main>
     )
@@ -80,8 +80,8 @@ export function HomePage() {
   return (
     <main className="page-fade mx-auto flex max-w-3xl flex-col gap-6">
       <section className="app-card p-6 md:p-8">
-        <p className="text-sm text-[#737a8c]">{greeting}</p>
-        <h2 className="serif-reading mt-1 text-4xl text-[#302a4a]">What’s on your mind today?</h2>
+        <p className="text-sm text-[#737a8c] dark:text-slate-300">{greeting}</p>
+        <h2 className="serif-reading mt-1 text-4xl text-[#302a4a] dark:text-gray-100">What’s on your mind today?</h2>
         <div className="mt-4 flex flex-wrap gap-2">
           <span className="soft-pill">🔥 6 day streak</span>
           <span className="soft-pill">Today’s mood: Reflective</span>
@@ -90,7 +90,7 @@ export function HomePage() {
 
       <section className="app-card p-8 text-center">
         <RecordButton recording={false} onClick={() => void start()} />
-        <p className="mt-5 text-sm text-[#6e7587]">Tap to begin your voice journal</p>
+        <p className="mt-5 text-sm text-[#6e7587] dark:text-slate-300">Tap to begin your voice journal</p>
         {audioBlob && (
           <motion.button initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} onClick={() => void submitRecording()} className="premium-button mt-5">
             Process entry
@@ -98,8 +98,8 @@ export function HomePage() {
         )}
       </section>
 
-      {error && <p className="text-sm text-[#af6b73]">{error}</p>}
-      {submitError && <p className="text-sm text-[#af6b73]">{submitError}</p>}
+      {error && <p className="text-sm text-[#af6b73] dark:text-rose-300">{error}</p>}
+      {submitError && <p className="text-sm text-[#af6b73] dark:text-rose-300">{submitError}</p>}
 
       <div className="flex flex-wrap gap-3 text-sm">
         <Link to="/timeline" className="soft-pill">Timeline</Link>

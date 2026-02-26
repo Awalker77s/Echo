@@ -82,27 +82,27 @@ export function TimelinePage() {
   if (loading) return <LoadingSkeleton lines={6} />
 
   return (
-    <main className="space-y-4">
+    <main className="space-y-4 dark:text-gray-100">
       <div className="flex items-center justify-between">
-        <h2 className="serif-reading text-3xl text-[#312c4f]">Timeline</h2>
+        <h2 className="serif-reading text-3xl text-[#312c4f] dark:text-gray-100">Timeline</h2>
         <button className="soft-pill" onClick={() => void load()}>Refresh</button>
       </div>
       {error && <ErrorState message={error} onAction={() => void load()} actionLabel="Try again" />}
       <input
-        className="app-card w-full px-4 py-3 text-sm outline-none"
+        className="app-card w-full px-4 py-3 text-sm outline-none dark:bg-slate-800 dark:text-gray-100"
         placeholder="Search entries"
         value={search}
         onChange={(event) => setSearch(event.target.value)}
       />
 
-      {!entries.length && !error && <div className="app-card p-4 text-[#6b7386]">No entries found for this timeframe.</div>}
+      {!entries.length && !error && <div className="app-card p-4 text-[#6b7386] dark:text-slate-300">No entries found for this timeframe.</div>}
 
       <div className="space-y-7">
         {Object.entries(grouped).map(([date, dayEntries]) => (
           <section key={date} className="space-y-3">
             <div className="flex items-center gap-3">
-              <h3 className="text-xs uppercase tracking-[0.16em] text-[#8a8398]">{date}</h3>
-              <div className="h-px flex-1 bg-[#dfd7d0]" />
+              <h3 className="text-xs uppercase tracking-[0.16em] text-[#8a8398] dark:text-slate-400">{date}</h3>
+              <div className="h-px flex-1 bg-[#dfd7d0] dark:bg-slate-700" />
             </div>
             {dayEntries.map((entry) => (
               <div key={entry.id}>

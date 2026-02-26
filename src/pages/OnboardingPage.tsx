@@ -33,7 +33,7 @@ export function OnboardingPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
+    <main className="flex min-h-screen items-center justify-center p-4 text-slate-900 dark:text-gray-100">
       <motion.section
         key={index}
         drag="x"
@@ -45,11 +45,11 @@ export function OnboardingPage() {
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -20 }}
-        className={`app-card w-full max-w-md bg-gradient-to-br ${slides[index].gradient} p-8 text-center`}
+        className={`app-card w-full max-w-md bg-gradient-to-br ${slides[index].gradient} p-8 text-center dark:from-slate-800 dark:to-slate-900`}
       >
-        <div className="mx-auto mb-8 h-32 w-32 rounded-full bg-white/50" />
-        <h1 className="serif-reading text-4xl text-[#2c2640]">{slides[index].title}</h1>
-        <p className="mt-4 text-[#5a6072]">{slides[index].text}</p>
+        <div className="mx-auto mb-8 h-32 w-32 rounded-full bg-white/50 dark:bg-slate-700/80" />
+        <h1 className="serif-reading text-4xl text-[#2c2640] dark:text-gray-100">{slides[index].title}</h1>
+        <p className="mt-4 text-[#5a6072] dark:text-slate-300">{slides[index].text}</p>
         <button onClick={next} className="premium-button mt-8 w-full">
           {index === slides.length - 1 ? 'Begin journaling' : 'Continue'}
         </button>

@@ -92,11 +92,11 @@ export function IdeasVaultPage() {
 
   return (
     <FeatureGate userPlan={plan} requiredPlan="core" featureName="Ideas Vault">
-      <main className="space-y-4">
+      <main className="space-y-4 dark:text-gray-100">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="serif-reading text-3xl text-[#312b4e]">Ideas Vault</h2>
-            <p className="mt-1 text-sm text-[#6c7386]">AI-extracted ideas from your journal entries — business concepts, solutions, and next steps.</p>
+            <h2 className="serif-reading text-3xl text-[#312b4e] dark:text-gray-100">Ideas Vault</h2>
+            <p className="mt-1 text-sm text-[#6c7386] dark:text-slate-300">AI-extracted ideas from your journal entries — business concepts, solutions, and next steps.</p>
           </div>
           <button
             onClick={() => void load()}
@@ -108,7 +108,7 @@ export function IdeasVaultPage() {
           </button>
         </div>
         {error && <ErrorState message={error} onAction={() => void load()} actionLabel="Try again" />}
-        <input id="ideas-search" name="ideas-search" className="app-card w-full px-4 py-3 text-sm outline-none" placeholder="Search ideas and details..." value={query} onChange={(event) => setQuery(event.target.value)} />
+        <input id="ideas-search" name="ideas-search" className="app-card w-full px-4 py-3 text-sm outline-none dark:bg-slate-800 dark:text-gray-100" placeholder="Search ideas and details..." value={query} onChange={(event) => setQuery(event.target.value)} />
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
           {categories.map((value) => (
             <button key={value} onClick={() => setCategory(value)} className={`soft-pill whitespace-nowrap capitalize ${category === value ? 'bg-[#e6e1fb] text-[#4a438b]' : ''}`}>

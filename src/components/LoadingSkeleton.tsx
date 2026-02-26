@@ -4,7 +4,7 @@ export function LoadingSkeleton({ lines = 3 }: { lines?: number }) {
       {Array.from({ length: lines }).map((_, index) => (
         <div
           key={index}
-          className="h-4 rounded-full bg-[#ece5de]"
+          className="h-4 rounded-full bg-[#ece5de] dark:bg-slate-700"
           style={{ width: `${Math.max(35, 100 - index * 12)}%`, animation: 'pulse 1.5s ease-in-out infinite' }}
         />
       ))}
