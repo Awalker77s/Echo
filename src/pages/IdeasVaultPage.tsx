@@ -3,7 +3,7 @@ import { ErrorState } from '../components/ErrorState'
 import { FeatureGate } from '../components/FeatureGate'
 import { LoadingSkeleton } from '../components/LoadingSkeleton'
 import { useUserPlan } from '../hooks/useUserPlan'
-import { invokeEdgeFunction } from '../lib/edgeFunctions'
+import { backfillIdeas } from '../lib/backfillIdeas'
 import { supabase } from '../lib/supabase'
 import type { Idea } from '../types'
 
@@ -62,12 +62,12 @@ export function IdeasVaultPage() {
     setBackfilling(true)
     setBackfillResult(null)
     setError(null)
-    const { data, error: fnError } = await invokeEdgeFunction<{ processed: number; created: number; message: string }>('backfill-ideas')
-    if (fnError) {
-      setError('Backfill failed: ' + fnError.message)
-    } else if (data) {
-      setBackfillResult(data.message)
-      if (data.created > 0) await load()
+    try {
+      const result = await backfillIdeas()
+      setBackfillResult(result.message)
+      if (result.created > 0) await load()
+    } catch (err) {
+      setError('Backfill failed: ' + (err instanceof Error ? err.message : String(err)))
     }
     setBackfilling(false)
   }
