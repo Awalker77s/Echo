@@ -8,12 +8,25 @@ import type { Idea } from '../types'
 
 const categories = ['all', 'business', 'creative', 'goal', 'action', 'other'] as const
 
+const ideaTypeConfig: Record<string, { label: string; color: string; bg: string }> = {
+  business_idea: { label: 'Business Idea', color: '#6b4c9a', bg: '#ede6fa' },
+  problem_solution: { label: 'Problem Solution', color: '#2d7d6f', bg: '#daf2ed' },
+  concept: { label: 'Concept', color: '#8a6d3b', bg: '#f5edd6' },
+  action_step: { label: 'Action Step', color: '#3d6b8a', bg: '#d9edf8' },
+}
+
+function getIdeaTypeStyle(ideaType?: string) {
+  if (!ideaType || !ideaTypeConfig[ideaType]) return null
+  return ideaTypeConfig[ideaType]
+}
+
 export function IdeasVaultPage() {
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<(typeof categories)[number]>('all')
   const [starredOnly, setStarredOnly] = useState(false)
   const [bouncingId, setBouncingId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { plan, loading: planLoading, error: planError } = useUserPlan()
@@ -42,7 +55,7 @@ export function IdeasVaultPage() {
   const filtered = useMemo(() => {
     if (!query.trim()) return ideas
     const lowered = query.toLowerCase()
-    return ideas.filter((idea) => idea.content.toLowerCase().includes(lowered))
+    return ideas.filter((idea) => idea.content.toLowerCase().includes(lowered) || (idea.details ?? '').toLowerCase().includes(lowered))
   }, [ideas, query])
 
   async function toggleStar(idea: Idea) {
@@ -60,9 +73,12 @@ export function IdeasVaultPage() {
   return (
     <FeatureGate userPlan={plan} requiredPlan="core" featureName="Ideas Vault">
       <main className="space-y-4">
-        <h2 className="serif-reading text-3xl text-[#312b4e]">Ideas Vault</h2>
+        <div>
+          <h2 className="serif-reading text-3xl text-[#312b4e]">Ideas Vault</h2>
+          <p className="mt-1 text-sm text-[#6c7386]">AI-extracted ideas from your journal entries — business concepts, solutions, and next steps.</p>
+        </div>
         {error && <ErrorState message={error} onAction={() => void load()} actionLabel="Try again" />}
-        <input className="app-card w-full px-4 py-3 text-sm outline-none" placeholder="Search ideas" value={query} onChange={(event) => setQuery(event.target.value)} />
+        <input className="app-card w-full px-4 py-3 text-sm outline-none" placeholder="Search ideas and details..." value={query} onChange={(event) => setQuery(event.target.value)} />
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
           {categories.map((value) => (
             <button key={value} onClick={() => setCategory(value)} className={`soft-pill whitespace-nowrap capitalize ${category === value ? 'bg-[#e6e1fb] text-[#4a438b]' : ''}`}>
@@ -73,20 +89,52 @@ export function IdeasVaultPage() {
             Starred only
           </button>
         </div>
+
+        {filtered.length === 0 && (
+          <div className="app-card p-4 text-[#6b7386]">No ideas found. Keep journaling — your AI helper will surface ideas from your entries.</div>
+        )}
+
         <ul className="grid gap-3 sm:grid-cols-2">
-          {filtered.map((idea) => (
-            <li key={idea.id} className="app-card p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm leading-relaxed text-[#3d4254]">{idea.content}</p>
-                  <p className="mt-2 text-xs uppercase tracking-wide text-[#7c8296]">{idea.category}</p>
+          {filtered.map((idea) => {
+            const typeStyle = getIdeaTypeStyle(idea.idea_type)
+            const isExpanded = expandedId === idea.id
+            return (
+              <li key={idea.id} className="app-card overflow-hidden">
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      {typeStyle && (
+                        <span className="mb-2 inline-block rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: typeStyle.color, backgroundColor: typeStyle.bg }}>
+                          {typeStyle.label}
+                        </span>
+                      )}
+                      <p className="text-sm font-medium leading-relaxed text-[#3d4254]">{idea.content}</p>
+                      <p className="mt-2 text-xs uppercase tracking-wide text-[#7c8296]">{idea.category}</p>
+                    </div>
+                    <button onClick={() => void toggleStar(idea)} className="shrink-0 rounded-full bg-[#f3efe8] px-3 py-1 text-sm text-[#5e6380]" style={{ animation: bouncingId === idea.id ? 'bounce-star 220ms ease-in-out' : undefined }}>
+                      {idea.is_starred ? '★' : '☆'}
+                    </button>
+                  </div>
+
+                  {idea.details && (
+                    <>
+                      <button
+                        onClick={() => setExpandedId(isExpanded ? null : idea.id)}
+                        className="mt-2 text-xs font-medium text-[#6b5fb5] hover:text-[#4a3f8f]"
+                      >
+                        {isExpanded ? 'Hide details' : 'Show details'}
+                      </button>
+                      {isExpanded && (
+                        <div className="mt-2 rounded-xl bg-[#f9f6ff] p-3">
+                          <p className="text-sm leading-relaxed text-[#4a4e5a]">{idea.details}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-                <button onClick={() => void toggleStar(idea)} className="rounded-full bg-[#f3efe8] px-3 py-1 text-sm text-[#5e6380]" style={{ animation: bouncingId === idea.id ? 'bounce-star 220ms ease-in-out' : undefined }}>
-                  {idea.is_starred ? '★' : '☆'}
-                </button>
-              </div>
-            </li>
-          ))}
+              </li>
+            )
+          })}
         </ul>
       </main>
     </FeatureGate>

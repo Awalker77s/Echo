@@ -1,5 +1,7 @@
 export type Plan = 'free' | 'core' | 'memoir' | 'lifetime'
 
+export type MoodLevel = 'Extremely Positive' | 'Positive' | 'Neutral' | 'Negative' | 'Extremely Negative'
+
 export interface JournalEntry {
   id: string
   entry_title: string
@@ -9,6 +11,7 @@ export interface JournalEntry {
   mood_primary: string
   mood_score: number
   mood_tags: string[]
+  mood_level?: MoodLevel
   themes: string[]
   duration_seconds: number
   recorded_at: string
@@ -20,6 +23,8 @@ export interface Idea {
   entry_id?: string
   content: string
   category: string
+  idea_type?: string
+  details?: string
   is_starred?: boolean
   created_at?: string
 }
@@ -29,6 +34,7 @@ export interface MoodPoint {
   recorded_at: string
   mood_score: number
   mood_primary: string
+  mood_level?: MoodLevel
 }
 
 export interface PatternEvidence {
@@ -42,6 +48,7 @@ export interface PatternInsight {
   description: string
   confidence: number
   evidence: PatternEvidence[]
+  advice?: string
   surfaced_at: string
   dismissed: boolean
 }
