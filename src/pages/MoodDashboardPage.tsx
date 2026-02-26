@@ -51,7 +51,7 @@ export function MoodDashboardPage() {
       const since = new Date(Date.now() - range.days * 24 * 60 * 60 * 1000).toISOString()
       const { data, error: queryError } = await supabase
         .from('mood_history')
-        .select('id,recorded_at,mood_score,mood_primary,mood_level')
+        .select('id,recorded_at,mood_score,mood_primary')
         .gte('recorded_at', since)
         .order('recorded_at', { ascending: true })
       if (queryError) {

@@ -141,6 +141,16 @@ Return JSON with an ideas array. If no clear ideas are found, still try to surfa
     const moodJson = safeParse<ParsedMood>(moodText, { mood_primary: 'reflective', mood_score: 0, mood_tags: ['reflective'], mood_level: 'Neutral' })
     const ideasJson = safeParse<ParsedIdeas>(ideasText, { ideas: [] })
 
+    // Ensure mood_level is always populated — derive from mood_score if the AI omitted it
+    if (!moodJson.mood_level) {
+      const s = moodJson.mood_score
+      if (s >= 0.6) moodJson.mood_level = 'Extremely Positive'
+      else if (s >= 0.2) moodJson.mood_level = 'Positive'
+      else if (s >= -0.2) moodJson.mood_level = 'Neutral'
+      else if (s >= -0.6) moodJson.mood_level = 'Negative'
+      else moodJson.mood_level = 'Extremely Negative'
+    }
+
     const recordedAt = new Date().toISOString()
     const durationSeconds = Math.max(1, Math.round(audio.size / 12000))
 
