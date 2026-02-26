@@ -147,7 +147,12 @@ If no ideas are found, return exactly: {"ideas": []}`
 
     const safeParse = <T>(text: string, fallback: T): T => {
       try {
-        return JSON.parse(text) as T
+        const cleanedText = text
+          .replace(/^```json\s*/i, '')
+          .replace(/^```\s*/i, '')
+          .replace(/```\s*$/i, '')
+          .trim()
+        return JSON.parse(cleanedText) as T
       } catch {
         return fallback
       }

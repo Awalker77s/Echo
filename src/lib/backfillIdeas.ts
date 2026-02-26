@@ -58,7 +58,13 @@ async function callOpenAI(entryText: string, apiKey: string): Promise<ParsedIdea
   console.log('2b. Extracted output text:', outputText)
 
   try {
-    const parsed = JSON.parse(outputText) as ParsedIdeas
+    const cleanedText = outputText
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim()
+
+    const parsed = JSON.parse(cleanedText) as ParsedIdeas
     console.log('3. Parsed ideas array:', parsed.ideas)
     return parsed
   } catch (parseErr) {

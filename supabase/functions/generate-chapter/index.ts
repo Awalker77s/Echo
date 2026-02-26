@@ -97,7 +97,12 @@ Return JSON with:
       }
 
       try {
-        chapter = JSON.parse(outputText)
+        const cleanedText = outputText
+          .replace(/^```json\s*/i, '')
+          .replace(/^```\s*/i, '')
+          .replace(/```\s*$/i, '')
+          .trim()
+        chapter = JSON.parse(cleanedText)
       } catch {
         // keep fallback
       }
