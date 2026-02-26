@@ -27,8 +27,8 @@ serve(async (req) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: [{ price, quantity: 1 }],
-      success_url: `${siteUrl}/gifts?checkout=success`,
-      cancel_url: `${siteUrl}/gifts?checkout=cancelled`,
+      success_url: `${siteUrl}/subscription?checkout=success`,
+      cancel_url: `${siteUrl}/subscription?checkout=cancelled`,
       customer_email: user.email,
       metadata: {
         gift: 'true',

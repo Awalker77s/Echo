@@ -4,7 +4,7 @@ import { AppShell } from './components/AppShell'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { ChapterReportsPage } from './pages/ChapterReportsPage'
 import { EntryViewPage } from './pages/EntryViewPage'
-import { GiftSubscriptionsPage } from './pages/GiftSubscriptionsPage'
+import { SubscriptionPage } from './pages/SubscriptionPage'
 import { HomePage } from './pages/HomePage'
 import { IdeasVaultPage } from './pages/IdeasVaultPage'
 import { InsightsPage } from './pages/InsightsPage'
@@ -40,7 +40,7 @@ export default function App() {
       <Route path="/ideas" element={<ProtectedLayout><IdeasVaultPage /></ProtectedLayout>} />
       <Route path="/insights" element={<ProtectedLayout><InsightsPage /></ProtectedLayout>} />
       <Route path="/chapters" element={<ProtectedLayout><ChapterReportsPage /></ProtectedLayout>} />
-      <Route path="/gifts" element={<ProtectedLayout><GiftSubscriptionsPage /></ProtectedLayout>} />
+      <Route path="/subscription" element={<ProtectedLayout><SubscriptionPage /></ProtectedLayout>} />
       <Route path="/memoir-print" element={<ProtectedLayout><MemoirPrintPage /></ProtectedLayout>} />
       <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
       <Route path="*" element={<NotFoundPage />} />
