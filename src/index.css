@@ -16,30 +16,51 @@
   --success: #7aa17a;
   --warning: #b79266;
   --danger: #af6b73;
+  --page-gradient: radial-gradient(circle at top right, #ebe6ff 0%, #f4efe8 44%, #f3eee8 100%);
   font-family: 'Inter', system-ui, sans-serif;
   color: var(--text);
-  background: radial-gradient(circle at top right, #ebe6ff 0%, #f4efe8 44%, #f3eee8 100%);
+  background: var(--page-gradient);
 }
 
+
+
+html.dark {
+  --bg: #0f172a;
+  --surface: #1f2937;
+  --surface-rgb: 31, 41, 55;
+  --surface-soft: #273449;
+  --text: #f3f4f6;
+  --muted: #cbd5e1;
+  --accent: #8b82ff;
+  --accent-soft: #37306f;
+  --page-gradient: radial-gradient(circle at top right, #2b2452 0%, #111827 42%, #0f172a 100%);
+}
+
+html,
 body {
   margin: 0;
   min-height: 100vh;
   color: var(--text);
-  background: transparent;
+  background: var(--page-gradient);
 }
 
 #root {
   min-height: 100vh;
+  background: transparent;
+}
+
+* {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 @layer components {
   .app-card {
-    @apply rounded-3xl shadow-[0_12px_40px_rgba(37,34,68,0.08)] backdrop-blur-sm;
+    @apply rounded-3xl shadow-[0_12px_40px_rgba(37,34,68,0.08)] backdrop-blur-sm dark:border dark:border-gray-700/80;
     background-color: rgba(var(--surface-rgb, 255,255,255), 0.9);
   }
 
   .soft-pill {
-    @apply rounded-full bg-[var(--surface-soft)] px-3 py-1 text-xs font-medium text-[var(--muted)];
+    @apply rounded-full bg-[var(--surface-soft)] px-3 py-1 text-xs font-medium text-[var(--muted)] dark:border dark:border-gray-700;
   }
 
   .premium-button {

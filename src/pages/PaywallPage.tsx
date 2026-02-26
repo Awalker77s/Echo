@@ -27,19 +27,19 @@ export function PaywallPage() {
   }
 
   return (
-    <main className="space-y-5">
+    <main className="space-y-5 dark:text-gray-100">
       <div className="text-center">
-        <h2 className="serif-reading text-4xl text-[#2e2947]">Choose your journaling path</h2>
-        <p className="mt-2 text-[#666f84]">Unlock deeper reflection and long-term personal archives.</p>
+        <h2 className="serif-reading text-4xl text-[#2e2947] dark:text-gray-100">Choose your journaling path</h2>
+        <p className="mt-2 text-[#666f84] dark:text-slate-300">Unlock deeper reflection and long-term personal archives.</p>
       </div>
       {error && <ErrorState message={error} />}
       <div className="grid gap-4 md:grid-cols-3">
         {plans.map((plan) => (
           <article key={plan.key} className={`app-card p-6 ${plan.recommended ? 'ring-2 ring-[#8178d8]' : ''}`}>
-            {plan.recommended && <p className="soft-pill mb-3 inline-flex bg-[#e6e1fb] text-[#4b438f]">Recommended</p>}
+            {plan.recommended && <p className="soft-pill mb-3 inline-flex bg-[#e6e1fb] text-[#4b438f] dark:bg-[#31295e] dark:text-[#c9c3ff]">Recommended</p>}
             <h3 className="text-xl font-semibold">{plan.title}</h3>
-            <p className="mt-1 text-2xl font-bold text-[#3b356a]">{plan.price}</p>
-            <ul className="mt-4 space-y-2 text-sm text-[#656d7f]">
+            <p className="mt-1 text-2xl font-bold text-[#3b356a] dark:text-[#c8c2ff]">{plan.price}</p>
+            <ul className="mt-4 space-y-2 text-sm text-[#656d7f] dark:text-slate-300">
               {plan.features.map((feature) => <li key={feature}>• {feature}</li>)}
             </ul>
             <button className="premium-button mt-5 w-full" disabled={loadingPlan === plan.key} onClick={() => void checkout(plan.key)}>

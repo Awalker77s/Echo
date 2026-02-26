@@ -101,8 +101,8 @@ export function MoodDashboardPage() {
 
   return (
     <FeatureGate userPlan={plan} requiredPlan="core" featureName="Mood Dashboard">
-      <main className="space-y-5">
-        <h2 className="serif-reading text-3xl text-[#302b4d]">Mood Dashboard</h2>
+      <main className="space-y-5 dark:text-gray-100">
+        <h2 className="serif-reading text-3xl text-[#302b4d] dark:text-gray-100">Mood Dashboard</h2>
         <div className="flex gap-2">
           {ranges.map((r) => (
             <button key={r.key} onClick={() => setRange(r)} className={`soft-pill ${range.key === r.key ? 'bg-[#e5e0fd] text-[#4e478f]' : ''}`}>
@@ -150,9 +150,9 @@ export function MoodDashboardPage() {
 
             {/* Mood Board - Day-by-day grid */}
             <div>
-              <h3 className="mb-3 text-lg font-semibold text-[#3d3660]">Mood Board</h3>
+              <h3 className="mb-3 text-lg font-semibold text-[#3d3660] dark:text-slate-100">Mood Board</h3>
               {dayGroups.length === 0 ? (
-                <div className="app-card p-4 text-[#6b7386]">No mood entries yet. Record a journal entry to start tracking your mood.</div>
+                <div className="app-card p-4 text-[#6b7386] dark:text-slate-300">No mood entries yet. Record a journal entry to start tracking your mood.</div>
               ) : (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                   {dayGroups.map((day) => {

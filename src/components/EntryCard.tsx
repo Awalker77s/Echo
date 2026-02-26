@@ -54,7 +54,7 @@ export function EntryCard({ entry, onTitleSave, onDelete }: EntryCardProps) {
             {editing ? (
               <input
                 ref={inputRef}
-                className="flex-1 bg-transparent text-base font-semibold text-[#1f2433] outline-none border-b-2 border-[#7f78d4]"
+                className="flex-1 bg-transparent text-base font-semibold text-[#1f2433] outline-none border-b-2 border-[#7f78d4] dark:text-gray-100 dark:border-[#958cff]"
                 value={title}
                 placeholder="Untitled Entry"
                 onChange={(e) => setTitle(e.target.value)}
@@ -65,7 +65,7 @@ export function EntryCard({ entry, onTitleSave, onDelete }: EntryCardProps) {
               />
             ) : (
               <h3
-                className="flex-1 text-base font-semibold text-[#1f2433] cursor-pointer hover:border-b hover:border-dashed hover:border-[#7f78d4]/40"
+                className="flex-1 text-base font-semibold text-[#1f2433] cursor-pointer dark:text-gray-100 hover:border-b hover:border-dashed hover:border-[#7f78d4]/40"
                 onClick={(e) => {
                   if (onTitleSave) {
                     e.preventDefault()
@@ -82,7 +82,7 @@ export function EntryCard({ entry, onTitleSave, onDelete }: EntryCardProps) {
             {onDelete && (
               <div className="relative">
                 <button
-                  className="rounded-full p-1 text-[#9a9aaa] hover:bg-[#f1ece6] hover:text-[#5f2f3b] transition"
+                  className="rounded-full p-1 text-[#9a9aaa] transition hover:bg-[#f1ece6] hover:text-[#5f2f3b] dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-rose-300"
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMenu((v) => !v) }}
                   title="Entry options"
                 >
@@ -91,9 +91,9 @@ export function EntryCard({ entry, onTitleSave, onDelete }: EntryCardProps) {
                 {showMenu && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMenu(false) }} />
-                    <div className="absolute right-0 top-7 z-20 min-w-[140px] rounded-xl bg-white py-1 shadow-lg border border-[#e7e1da]">
+                    <div className="absolute right-0 top-7 z-20 min-w-[140px] rounded-xl border border-[#e7e1da] bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-slate-800">
                       <button
-                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#5f2f3b] hover:bg-[#fdf0f0] transition"
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#5f2f3b] transition hover:bg-[#fdf0f0] dark:text-rose-300 dark:hover:bg-rose-950/30"
                         onClick={handleDelete}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -105,8 +105,8 @@ export function EntryCard({ entry, onTitleSave, onDelete }: EntryCardProps) {
               </div>
             )}
           </div>
-          <p className="mt-2 line-clamp-2 text-sm text-[#5f6678]">{entry.cleaned_entry}</p>
-          <div className="mt-4 flex items-center justify-between text-xs text-[#6b7182]">
+          <p className="mt-2 line-clamp-2 text-sm text-[#5f6678] dark:text-slate-300">{entry.cleaned_entry}</p>
+          <div className="mt-4 flex items-center justify-between text-xs text-[#6b7182] dark:text-slate-400">
             <span className="soft-pill capitalize">{entry.mood_primary}</span>
             <span>{new Date(entry.recorded_at).toLocaleString()}</span>
           </div>

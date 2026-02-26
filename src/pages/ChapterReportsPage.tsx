@@ -56,10 +56,10 @@ export function ChapterReportsPage() {
 
   return (
     <FeatureGate userPlan={plan} requiredPlan="memoir" featureName="Chapter Reports">
-      <main className="space-y-4">
+      <main className="space-y-4 dark:text-gray-100">
         <div>
-          <h2 className="serif-reading text-3xl text-[#302b4b]">Chapter Reports</h2>
-          <p className="mt-1 text-sm text-[#6c7386]">Your life story, one month at a time — woven from your journal entries.</p>
+          <h2 className="serif-reading text-3xl text-[#302b4b] dark:text-gray-100">Chapter Reports</h2>
+          <p className="mt-1 text-sm text-[#6c7386] dark:text-slate-300">Your life story, one month at a time — woven from your journal entries.</p>
         </div>
         {error && <ErrorState message={error} onAction={() => void loadReports()} actionLabel="Try again" />}
 

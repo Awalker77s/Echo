@@ -71,11 +71,11 @@ export function InsightsPage() {
 
   return (
     <FeatureGate userPlan={plan} requiredPlan="memoir" featureName="Insights">
-      <main className="space-y-4">
+      <main className="space-y-4 dark:text-gray-100">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="serif-reading text-3xl text-[#302a4c]">Insights</h2>
-            <p className="mt-1 text-sm text-[#6c7386]">Thoughtful observations and personal growth insights drawn from your journal entries.</p>
+            <h2 className="serif-reading text-3xl text-[#302a4c] dark:text-gray-100">Insights</h2>
+            <p className="mt-1 text-sm text-[#6c7386] dark:text-slate-300">Thoughtful observations and personal growth insights drawn from your journal entries.</p>
           </div>
           <button
             onClick={() => void load()}
@@ -121,7 +121,7 @@ export function InsightsPage() {
           </div>
         )}
 
-        <ul className="space-y-4">
+        <ul className="space-y-4 dark:text-gray-100">
           {insights.map((insight) => {
             const typeStyle = getInsightTypeStyle(insight.insight_type)
             return (
