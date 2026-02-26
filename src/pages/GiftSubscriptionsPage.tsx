@@ -51,7 +51,7 @@ export function GiftSubscriptionsPage() {
 
   return (
     <main className="space-y-4">
-      <h2 className="serif-reading text-3xl text-[#302b4c]">Gift subscriptions</h2>
+      <h2 className="serif-reading text-3xl text-[#302b4c]">Subscriptions</h2>
       {error && <ErrorState message={error} />}
 
       <section className="app-card p-5">
