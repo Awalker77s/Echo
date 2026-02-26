@@ -21,7 +21,10 @@ export function InsightsPage() {
     }
     setLoading(true)
     const { data, error: queryError } = await supabase.from('patterns').select('*').eq('dismissed', false).order('confidence', { ascending: false })
-    if (queryError) setError('Unable to load insights right now.')
+    if (queryError) {
+      console.error('[InsightsPage] Failed to load patterns:', queryError.message, queryError.code)
+      setError('Unable to load insights right now.')
+    }
     else {
       setPatterns((data as PatternInsight[]) ?? [])
       setError(null)
@@ -35,6 +38,7 @@ export function InsightsPage() {
     if (!supabase) return
     const { error: dismissError } = await supabase.from('patterns').update({ dismissed: true }).eq('id', id)
     if (dismissError) {
+      console.error('[InsightsPage] Failed to dismiss pattern:', dismissError.message, dismissError.code)
       setError('Could not dismiss insight. Please try again.')
       return
     }

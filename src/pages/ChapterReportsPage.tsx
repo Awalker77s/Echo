@@ -21,7 +21,10 @@ export function ChapterReportsPage() {
     }
     setLoading(true)
     const { data, error: queryError } = await supabase.from('chapter_reports').select('*').order('month', { ascending: false })
-    if (queryError) setError('Unable to load chapter reports right now.')
+    if (queryError) {
+      console.error('[ChapterReportsPage] Failed to load chapters:', queryError.message, queryError.code)
+      setError('Unable to load chapter reports right now.')
+    }
     else {
       const rows = (data as ChapterReport[]) ?? []
       setReports(rows)

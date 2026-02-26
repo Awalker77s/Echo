@@ -15,8 +15,11 @@ export function useUserPlan() {
     }
 
     setLoading(true)
-    const { data, error: profileError } = await supabase.from('users').select('plan').single()
+    // maybeSingle avoids a PGRST116 error when the profile row hasn't been
+    // created yet (e.g. the auth trigger hasn't fired). Fall back to 'free'.
+    const { data, error: profileError } = await supabase.from('users').select('plan').maybeSingle()
     if (profileError) {
+      console.error('[useUserPlan] Failed to load plan:', profileError.message, profileError.code)
       setError('We could not load your subscription plan.')
       setLoading(false)
       return

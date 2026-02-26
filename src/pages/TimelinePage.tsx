@@ -34,8 +34,10 @@ export function TimelinePage() {
 
     if (search.trim()) query = query.ilike('cleaned_entry', `%${search.trim()}%`)
     const { data, error: queryError } = await query
-    if (queryError) setError('Unable to load your timeline right now.')
-    else {
+    if (queryError) {
+      console.error('[TimelinePage] Failed to load entries:', queryError.message, queryError.code)
+      setError('Unable to load your timeline right now.')
+    } else {
       setEntries((data as JournalEntry[]) ?? [])
       setError(null)
     }

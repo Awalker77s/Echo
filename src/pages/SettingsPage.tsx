@@ -32,11 +32,15 @@ export function SettingsPage() {
     }
     setLoading(true)
     const [{ data: profile, error: profileError }, { data: moodData, error: moodError }] = await Promise.all([
-      supabase.from('users').select('plan').single(),
+      supabase.from('users').select('plan').maybeSingle(),
       supabase.from('mood_history').select('id,recorded_at,mood_score,mood_primary').order('recorded_at', { ascending: false }).limit(30),
     ])
 
-    if (profileError || moodError) setError('Unable to load settings right now.')
+    if (profileError || moodError) {
+      if (profileError) console.error('[SettingsPage] Failed to load profile:', profileError.message, profileError.code)
+      if (moodError) console.error('[SettingsPage] Failed to load mood history:', moodError.message, moodError.code)
+      setError('Unable to load settings right now.')
+    }
     else {
       if (profile?.plan) setPlan(profile.plan as Plan)
       setMoods((moodData as MoodPoint[]) ?? [])
