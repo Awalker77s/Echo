@@ -9,8 +9,6 @@ import type { JournalEntry } from '../types'
 export function TimelinePage() {
   const [entries, setEntries] = useState<JournalEntry[]>([])
   const [search, setSearch] = useState('')
-  const [touchStartX, setTouchStartX] = useState<Record<string, number>>({})
-  const [offsets, setOffsets] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -67,6 +65,16 @@ export function TimelinePage() {
     setEntries((current) => current.filter((entry) => entry.id !== id))
   }
 
+  async function updateTitle(id: string, newTitle: string) {
+    if (!supabase) return
+    const { error: updateError } = await supabase.from('journal_entries').update({ entry_title: newTitle }).eq('id', id)
+    if (updateError) {
+      setError('Unable to update the title. Please try again.')
+      return
+    }
+    setEntries((current) => current.map((entry) => entry.id === id ? { ...entry, entry_title: newTitle } : entry))
+  }
+
 
 
   if (loading) return <LoadingSkeleton lines={6} />
@@ -94,29 +102,17 @@ export function TimelinePage() {
               <h3 className="text-xs uppercase tracking-[0.16em] text-[#8a8398]">{date}</h3>
               <div className="h-px flex-1 bg-[#dfd7d0]" />
             </div>
-            {dayEntries.map((entry) => {
-              const offset = offsets[entry.id] ?? 0
-              return (
-                <div key={entry.id} className="relative overflow-hidden rounded-3xl">
-                  <div className="absolute inset-y-0 right-0 flex items-center gap-2 pr-3">
-                    <button className="soft-pill" onClick={() => setOffsets((old) => ({ ...old, [entry.id]: 0 }))}>Reset</button>
-                    <button className="rounded-full bg-[#e4b6bc] px-3 py-1 text-xs text-[#5f2f3b]" onClick={() => void deleteEntry(entry.id)}>Delete</button>
-                  </div>
-                  <div
-                    style={{ transform: `translateX(${offset}px)`, transition: 'transform 180ms ease' }}
-                    onTouchStart={(event) => setTouchStartX((old) => ({ ...old, [entry.id]: event.touches[0].clientX }))}
-                    onTouchMove={(event) => {
-                      const start = touchStartX[entry.id] ?? event.touches[0].clientX
-                      const delta = event.touches[0].clientX - start
-                      setOffsets((old) => ({ ...old, [entry.id]: Math.min(0, Math.max(-120, delta)) }))
-                    }}
-                    onTouchEnd={() => setOffsets((old) => ({ ...old, [entry.id]: (old[entry.id] ?? 0) < -60 ? -92 : 0 }))}
-                  >
-                    <Link to={`/entries/${entry.id}`}><EntryCard entry={entry} /></Link>
-                  </div>
-                </div>
-              )
-            })}
+            {dayEntries.map((entry) => (
+              <div key={entry.id}>
+                <Link to={`/entries/${entry.id}`}>
+                  <EntryCard
+                    entry={entry}
+                    onTitleSave={(id, title) => void updateTitle(id, title)}
+                    onDelete={(id) => void deleteEntry(id)}
+                  />
+                </Link>
+              </div>
+            ))}
           </section>
         ))}
       </div>

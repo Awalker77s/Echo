@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useParams } from 'react-router-dom'
 import { ErrorState } from '../components/ErrorState'
@@ -16,6 +16,9 @@ export function EntryViewPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [saveState, setSaveState] = useState<string>('')
+  const [titleDraft, setTitleDraft] = useState('')
+  const [editingTitle, setEditingTitle] = useState(false)
+  const titleInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     async function load() {
@@ -39,6 +42,7 @@ export function EntryViewPage() {
       const row = entryData as JournalEntry
       setEntry(row)
       setDraft(row.cleaned_entry)
+      setTitleDraft(row.entry_title)
 
       if (row.audio_url) {
         const { data: signed, error: signedUrlError } = await supabase.storage.from('journal-audio').createSignedUrl(row.audio_url, 600)
@@ -53,16 +57,28 @@ export function EntryViewPage() {
     void load()
   }, [id])
 
+  async function saveTitle() {
+    if (!supabase || !entry) return
+    const newTitle = titleDraft.trim() || 'Untitled Entry'
+    setTitleDraft(newTitle)
+    setEditingTitle(false)
+    if (newTitle === entry.entry_title) return
+    const { data, error: saveError } = await supabase.from('journal_entries').update({ entry_title: newTitle }).eq('id', entry.id).select('*').single()
+    if (saveError || !data) return
+    setEntry(data as JournalEntry)
+  }
+
   async function saveEdits(event: FormEvent) {
     event.preventDefault()
     if (!supabase || !entry) return
     setSaveState('Saving...')
-    const { data, error: saveError } = await supabase.from('journal_entries').update({ cleaned_entry: draft }).eq('id', entry.id).select('*').single()
+    const { data, error: saveError } = await supabase.from('journal_entries').update({ cleaned_entry: draft, entry_title: titleDraft.trim() || 'Untitled Entry' }).eq('id', entry.id).select('*').single()
     if (saveError || !data) {
       setSaveState('Could not save changes. Please try again.')
       return
     }
     setEntry(data as JournalEntry)
+    setTitleDraft(data.entry_title)
     setSaveState('Changes saved.')
   }
 
@@ -72,7 +88,26 @@ export function EntryViewPage() {
   return (
     <motion.main initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <section className="app-card p-6 md:p-8">
-        <h2 className="serif-reading text-4xl text-[#2d2948]">{entry.entry_title}</h2>
+        {editingTitle ? (
+          <input
+            ref={titleInputRef}
+            className="serif-reading w-full bg-transparent text-4xl text-[#2d2948] outline-none border-b-2 border-[#7f78d4]"
+            value={titleDraft}
+            placeholder="Untitled Entry"
+            onChange={(e) => setTitleDraft(e.target.value)}
+            onBlur={() => void saveTitle()}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void saveTitle() } }}
+            autoFocus
+          />
+        ) : (
+          <h2
+            className="serif-reading text-4xl text-[#2d2948] cursor-pointer hover:border-b-2 hover:border-dashed hover:border-[#7f78d4]/40"
+            onClick={() => { setEditingTitle(true); setTimeout(() => titleInputRef.current?.focus(), 0) }}
+            title="Click to edit title"
+          >
+            {entry.entry_title}
+          </h2>
+        )}
         <div className="mt-4 flex flex-wrap gap-2">
           <span className="soft-pill capitalize">{entry.mood_primary}</span>
           {entry.themes?.map((theme) => <span key={theme} className="soft-pill">#{theme}</span>)}
