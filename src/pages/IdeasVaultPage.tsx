@@ -42,7 +42,10 @@ export function IdeasVaultPage() {
     if (category !== 'all') q = q.eq('category', category)
     if (starredOnly) q = q.eq('is_starred', true)
     const { data, error: queryError } = await q
-    if (queryError) setError('Unable to load ideas right now.')
+    if (queryError) {
+      console.error('[IdeasVaultPage] Failed to load ideas:', queryError.message, queryError.code)
+      setError('Unable to load ideas right now.')
+    }
     else {
       setIdeas((data as Idea[]) ?? [])
       setError(null)

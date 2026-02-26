@@ -54,8 +54,10 @@ export function MoodDashboardPage() {
         .select('id,recorded_at,mood_score,mood_primary,mood_level')
         .gte('recorded_at', since)
         .order('recorded_at', { ascending: true })
-      if (queryError) setError('Unable to load mood history right now.')
-      else {
+      if (queryError) {
+        console.error('[MoodDashboardPage] Failed to load mood history:', queryError.message, queryError.code)
+        setError('Unable to load mood history right now.')
+      } else {
         setPoints((data as MoodPoint[]) ?? [])
         setError(null)
       }
