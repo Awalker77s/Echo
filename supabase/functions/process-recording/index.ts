@@ -95,6 +95,10 @@ serve(async (req) => {
     console.log('[process-recording] Calling Whisper transcription')
     const transcript = await callWhisperTranscription({ apiKey: openAiKey, audio })
 
+    console.log('[process-recording] Transcript received', {
+      transcriptLength: transcript.length,
+      transcriptPreview: transcript.slice(0, 120),
+    })
     console.log('[process-recording] Calling OpenAI journal/mood/idea prompts')
     const moodSystemPrompt = `Analyze the mood of this journal entry by examining the key words and overall tone. Return JSON with:
 - mood_primary: a single descriptive word (e.g. "joyful", "anxious", "reflective")
@@ -123,11 +127,18 @@ Look for:
 
 Return JSON with an ideas array. If no clear ideas are found, still try to surface at least one actionable suggestion based on what the user is thinking about.`
 
+    console.log('[process-recording] Sending 3 parallel OpenAI Responses API calls (journal, mood, ideas)')
     const [journalText, moodText, ideasText] = await Promise.all([
       callOpenAIResponses({ model: 'gpt-4o', temperature: 0.7, apiKey: openAiKey, input: [{ role: 'system', content: 'Transform the transcript into JSON with keys title and entry.' }, { role: 'user', content: transcript }] }),
       callOpenAIResponses({ model: 'gpt-4o', temperature: 0.3, apiKey: openAiKey, input: [{ role: 'system', content: moodSystemPrompt }, { role: 'user', content: transcript }] }),
       callOpenAIResponses({ model: 'gpt-4o', temperature: 0.4, apiKey: openAiKey, input: [{ role: 'system', content: ideasSystemPrompt }, { role: 'user', content: transcript }] }),
     ])
+    console.log('[process-recording] OpenAI responses received', {
+      journalTextLength: journalText.length,
+      moodTextLength: moodText.length,
+      ideasTextLength: ideasText.length,
+      ideasTextPreview: ideasText.slice(0, 300),
+    })
 
     const safeParse = <T>(text: string, fallback: T): T => {
       try {
@@ -140,6 +151,13 @@ Return JSON with an ideas array. If no clear ideas are found, still try to surfa
     const journalJson = safeParse<ParsedJournal>(journalText, { title: 'Untitled Entry', entry: transcript })
     const moodJson = safeParse<ParsedMood>(moodText, { mood_primary: 'reflective', mood_score: 0, mood_tags: ['reflective'], mood_level: 'Neutral' })
     const ideasJson = safeParse<ParsedIdeas>(ideasText, { ideas: [] })
+    console.log('[process-recording] Parsed results', {
+      journalTitle: journalJson.title,
+      moodPrimary: moodJson.mood_primary,
+      moodScore: moodJson.mood_score,
+      ideasCount: ideasJson.ideas.length,
+      ideasPreview: ideasJson.ideas.slice(0, 2).map((i) => i.content),
+    })
 
     // Ensure mood_level is always populated — derive from mood_score if the AI omitted it
     if (!moodJson.mood_level) {

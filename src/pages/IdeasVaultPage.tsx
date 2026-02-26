@@ -3,6 +3,7 @@ import { ErrorState } from '../components/ErrorState'
 import { FeatureGate } from '../components/FeatureGate'
 import { LoadingSkeleton } from '../components/LoadingSkeleton'
 import { useUserPlan } from '../hooks/useUserPlan'
+import { invokeEdgeFunction } from '../lib/edgeFunctions'
 import { supabase } from '../lib/supabase'
 import type { Idea } from '../types'
 
@@ -29,6 +30,8 @@ export function IdeasVaultPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [backfilling, setBackfilling] = useState(false)
+  const [backfillResult, setBackfillResult] = useState<string | null>(null)
   const { plan, loading: planLoading, error: planError } = useUserPlan()
 
   async function load() {
@@ -55,6 +58,20 @@ export function IdeasVaultPage() {
 
   useEffect(() => { void load() }, [category, starredOnly])
 
+  async function runBackfill() {
+    setBackfilling(true)
+    setBackfillResult(null)
+    setError(null)
+    const { data, error: fnError } = await invokeEdgeFunction<{ processed: number; created: number; message: string }>('backfill-ideas')
+    if (fnError) {
+      setError('Backfill failed: ' + fnError.message)
+    } else if (data) {
+      setBackfillResult(data.message)
+      if (data.created > 0) await load()
+    }
+    setBackfilling(false)
+  }
+
   const filtered = useMemo(() => {
     if (!query.trim()) return ideas
     const lowered = query.toLowerCase()
@@ -76,9 +93,19 @@ export function IdeasVaultPage() {
   return (
     <FeatureGate userPlan={plan} requiredPlan="core" featureName="Ideas Vault">
       <main className="space-y-4">
-        <div>
-          <h2 className="serif-reading text-3xl text-[#312b4e]">Ideas Vault</h2>
-          <p className="mt-1 text-sm text-[#6c7386]">AI-extracted ideas from your journal entries — business concepts, solutions, and next steps.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="serif-reading text-3xl text-[#312b4e]">Ideas Vault</h2>
+            <p className="mt-1 text-sm text-[#6c7386]">AI-extracted ideas from your journal entries — business concepts, solutions, and next steps.</p>
+          </div>
+          <button
+            onClick={() => void load()}
+            disabled={loading}
+            className="soft-pill shrink-0 whitespace-nowrap disabled:opacity-50"
+            title="Reload ideas from Supabase"
+          >
+            {loading ? 'Loading…' : '↻ Refresh'}
+          </button>
         </div>
         {error && <ErrorState message={error} onAction={() => void load()} actionLabel="Try again" />}
         <input className="app-card w-full px-4 py-3 text-sm outline-none" placeholder="Search ideas and details..." value={query} onChange={(event) => setQuery(event.target.value)} />
@@ -93,8 +120,30 @@ export function IdeasVaultPage() {
           </button>
         </div>
 
-        {filtered.length === 0 && (
-          <div className="app-card p-4 text-[#6b7386]">No ideas found. Keep journaling — your AI helper will surface ideas from your entries.</div>
+        {backfillResult && (
+          <div className="app-card p-3 text-sm text-[#2d7d6f]">{backfillResult}</div>
+        )}
+
+        {filtered.length === 0 && !loading && (
+          <div className="app-card space-y-3 p-5 text-center">
+            <p className="text-[#6b7386]">
+              {query || starredOnly || category !== 'all'
+                ? 'No ideas match your current filters.'
+                : 'No ideas yet — record a journal entry to get started.'}
+            </p>
+            {!query && !starredOnly && category === 'all' && (
+              <div className="space-y-2">
+                <p className="text-xs text-[#9196a6]">Already have journal entries? Use the button below to extract ideas from them.</p>
+                <button
+                  onClick={() => void runBackfill()}
+                  disabled={backfilling}
+                  className="premium-button disabled:opacity-50"
+                >
+                  {backfilling ? 'Generating ideas…' : 'Generate ideas from existing entries'}
+                </button>
+              </div>
+            )}
+          </div>
         )}
 
         <ul className="grid gap-3 sm:grid-cols-2">

@@ -45,8 +45,21 @@ export async function callOpenAIResponses(args: {
     throw new Error(`OpenAI responses API failed (${response.status}): ${text}`)
   }
 
-  const payload = await response.json() as { output_text?: string }
-  return payload.output_text ?? ''
+  // The raw Responses API JSON does NOT have a top-level `output_text` field.
+  // That accessor only exists on the OpenAI SDK wrapper objects. In the raw
+  // REST response the generated text lives at output[0].content[?].text where
+  // the content item has type "output_text".
+  interface ResponsePayload {
+    output?: Array<{
+      type: string
+      content?: Array<{ type: string; text?: string }>
+    }>
+  }
+  const payload = await response.json() as ResponsePayload
+  const outputText =
+    payload.output?.[0]?.content?.find((c) => c.type === 'output_text')?.text ?? ''
+  console.log(`[openai] Responses API returned ${outputText.length} chars`)
+  return outputText
 }
 
 export async function callWhisperTranscription(args: { apiKey: string; audio: File }) {
