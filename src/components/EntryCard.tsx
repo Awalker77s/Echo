@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import type { JournalEntry } from '../types'
 
 const moodColor: Record<string, string> = {
@@ -13,15 +14,97 @@ const moodColor: Record<string, string> = {
   sad: '#8f7fa0',
 }
 
-export function EntryCard({ entry }: { entry: JournalEntry }) {
+interface EntryCardProps {
+  entry: JournalEntry
+  onTitleSave?: (id: string, title: string) => void
+  onDelete?: (id: string) => void
+}
+
+export function EntryCard({ entry, onTitleSave, onDelete }: EntryCardProps) {
   const accent = moodColor[entry.mood_primary] ?? '#8f8abf'
+  const [editing, setEditing] = useState(false)
+  const [title, setTitle] = useState(entry.entry_title)
+  const [showMenu, setShowMenu] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  function commitTitle() {
+    const newTitle = title.trim() || 'Untitled Entry'
+    setTitle(newTitle)
+    setEditing(false)
+    if (newTitle !== entry.entry_title && onTitleSave) {
+      onTitleSave(entry.id, newTitle)
+    }
+  }
+
+  function handleDelete(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (onDelete && window.confirm('Are you sure you want to delete this entry?')) {
+      onDelete(entry.id)
+    }
+    setShowMenu(false)
+  }
 
   return (
     <article className="app-card overflow-hidden">
       <div className="flex">
         <div className="w-1.5" style={{ backgroundColor: accent }} />
         <div className="flex-1 p-5">
-          <h3 className="text-base font-semibold text-[#1f2433]">{entry.entry_title}</h3>
+          <div className="flex items-start justify-between gap-2">
+            {editing ? (
+              <input
+                ref={inputRef}
+                className="flex-1 bg-transparent text-base font-semibold text-[#1f2433] outline-none border-b-2 border-[#7f78d4]"
+                value={title}
+                placeholder="Untitled Entry"
+                onChange={(e) => setTitle(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitTitle() } if (e.key === 'Escape') { setTitle(entry.entry_title); setEditing(false) } }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
+                autoFocus
+              />
+            ) : (
+              <h3
+                className="flex-1 text-base font-semibold text-[#1f2433] cursor-pointer hover:border-b hover:border-dashed hover:border-[#7f78d4]/40"
+                onClick={(e) => {
+                  if (onTitleSave) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setEditing(true)
+                    setTimeout(() => inputRef.current?.focus(), 0)
+                  }
+                }}
+                title={onTitleSave ? 'Click to edit title' : undefined}
+              >
+                {title}
+              </h3>
+            )}
+            {onDelete && (
+              <div className="relative">
+                <button
+                  className="rounded-full p-1 text-[#9a9aaa] hover:bg-[#f1ece6] hover:text-[#5f2f3b] transition"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMenu((v) => !v) }}
+                  title="Entry options"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+                </button>
+                {showMenu && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMenu(false) }} />
+                    <div className="absolute right-0 top-7 z-20 min-w-[140px] rounded-xl bg-white py-1 shadow-lg border border-[#e7e1da]">
+                      <button
+                        className="flex w-full items-center gap-2 px-4 py-2 text-sm text-[#5f2f3b] hover:bg-[#fdf0f0] transition"
+                        onClick={handleDelete}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           <p className="mt-2 line-clamp-2 text-sm text-[#5f6678]">{entry.cleaned_entry}</p>
           <div className="mt-4 flex items-center justify-between text-xs text-[#6b7182]">
             <span className="soft-pill capitalize">{entry.mood_primary}</span>
