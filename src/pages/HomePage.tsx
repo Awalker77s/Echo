@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { RecordButton } from '../components/RecordButton'
+import { StreakDisplay } from '../components/StreakDisplay'
 import { Waveform } from '../components/Waveform'
 import { useRecorder } from '../hooks/useRecorder'
+import { useStreak } from '../hooks/useStreak'
 import { supabase } from '../lib/supabase'
 import { invokeEdgeFunction } from '../lib/edgeFunctions'
 
@@ -11,6 +13,7 @@ const messages = ['Reflecting on your words...', 'Finding the meaning...', 'Craf
 
 export function HomePage() {
   const { isRecording, duration, audioBlob, start, stop, analyserRef, dataArrayRef, error, resetBlob } = useRecorder()
+  const { logAction } = useStreak()
   const [processing, setProcessing] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [messageIndex, setMessageIndex] = useState(0)
@@ -52,6 +55,7 @@ export function HomePage() {
       return
     }
 
+    logAction()
     resetBlob()
     navigate(`/entries/${data.id}`)
   }
@@ -82,9 +86,8 @@ export function HomePage() {
       <section className="app-card p-6 md:p-8">
         <p className="text-sm text-[#737a8c] dark:text-slate-300">{greeting}</p>
         <h2 className="serif-reading mt-1 text-4xl text-[#302a4a] dark:text-gray-100">What’s on your mind today?</h2>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <span className="soft-pill">🔥 6 day streak</span>
-          <span className="soft-pill">Today’s mood: Reflective</span>
+        <div className="mt-4">
+          <StreakDisplay />
         </div>
       </section>
 
