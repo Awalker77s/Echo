@@ -164,10 +164,11 @@ export async function backfillIdeas(): Promise<{ processed: number; created: num
     }))
     console.log(`[backfillIdeas] Entry ${entry.id} — attempting to insert ${toInsert.length} ideas:`, JSON.stringify(toInsert, null, 2))
 
-    const { data: insertData, error: insertErr } = await supabase.from('ideas').insert(toInsert).select('id')
-    console.log('4. Supabase insert result:', { insertedRows: insertData, error: insertErr })
+    const insertResult = await supabase.from('ideas').insert(toInsert).select('id')
+    const { data: insertData, error: insertErr } = insertResult
+    console.log('4. Supabase insert result:', JSON.stringify({ insertedRows: insertData, error: insertErr }, null, 2))
     if (insertErr) {
-      console.error('[backfillIdeas] Insert failed for entry', entry.id, insertErr)
+      console.error('[backfillIdeas] Insert failed:', JSON.stringify(insertResult, null, 2))
     } else {
       totalCreated += toInsert.length
     }
