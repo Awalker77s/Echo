@@ -113,19 +113,22 @@ Classification guide:
 - "Negative": Words like sad, worried, frustrated, tired, stressed, anxious, disappointed, difficult, struggling
 - "Extremely Negative": Words like devastated, hopeless, terrible, awful, miserable, depressed, overwhelmed, broken, desperate`
 
-    const ideasSystemPrompt = `You are an AI idea extraction helper. Analyze this journal entry and extract actionable ideas. For each idea found, return it with:
-- content: a clear, concise description of the idea
-- category: one of "business", "creative", "goal", "action", "other"
-- idea_type: one of "business_idea" (potential business or money-making concepts), "problem_solution" (ways to solve problems mentioned), "concept" (interesting concepts worth developing further), "action_step" (specific actionable next steps or creative directions)
-- details: an expanded explanation (2-3 sentences) that develops the idea further, suggests how to pursue it, or explains why it's worth exploring
+    const ideasSystemPrompt = `You are an idea extraction assistant. Analyze the journal entry and extract any business ideas, creative ideas, goals, or action items. Respond ONLY with a valid JSON object in this exact format, no markdown code fences, no other text:
+{
+  "ideas": [
+    {
+      "content": "clear concise description of the idea",
+      "category": "business",
+      "idea_type": "business_idea",
+      "details": "expanded explanation in 2-3 sentences"
+    }
+  ]
+}
 
-Look for:
-- Business ideas mentioned or implied
-- Solutions to problems the user describes
-- Concepts worth developing and expanding on
-- Actionable next steps or creative directions
+Valid values for category: "business", "creative", "goal", "action", "other"
+Valid values for idea_type: "business_idea", "problem_solution", "concept", "action_step"
 
-Return JSON with an ideas array. If no clear ideas are found, still try to surface at least one actionable suggestion based on what the user is thinking about.`
+If no ideas are found, return exactly: {"ideas": []}`
 
     console.log('[process-recording] Sending 3 parallel OpenAI Responses API calls (journal, mood, ideas)')
     const [journalText, moodText, ideasText] = await Promise.all([
@@ -139,6 +142,8 @@ Return JSON with an ideas array. If no clear ideas are found, still try to surfa
       ideasTextLength: ideasText.length,
       ideasTextPreview: ideasText.slice(0, 300),
     })
+    // Log the full raw ideas response so we can inspect exactly what OpenAI returned
+    console.log('[process-recording] Raw ideas response from OpenAI:', ideasText)
 
     const safeParse = <T>(text: string, fallback: T): T => {
       try {
@@ -150,7 +155,19 @@ Return JSON with an ideas array. If no clear ideas are found, still try to surfa
 
     const journalJson = safeParse<ParsedJournal>(journalText, { title: 'Untitled Entry', entry: transcript })
     const moodJson = safeParse<ParsedMood>(moodText, { mood_primary: 'reflective', mood_score: 0, mood_tags: ['reflective'], mood_level: 'Neutral' })
-    const ideasJson = safeParse<ParsedIdeas>(ideasText, { ideas: [] })
+
+    // Parse ideas with explicit error logging — strip markdown code fences in case OpenAI wraps the JSON
+    let ideasJson: ParsedIdeas = { ideas: [] }
+    try {
+      const cleanedIdeasText = ideasText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+      ideasJson = JSON.parse(cleanedIdeasText) as ParsedIdeas
+      if (!Array.isArray(ideasJson.ideas)) {
+        console.error('[process-recording] Parsed ideas JSON is missing the "ideas" array', { ideasJson })
+        ideasJson = { ideas: [] }
+      }
+    } catch (parseErr) {
+      console.error('[process-recording] Failed to parse ideas JSON', { error: String(parseErr), ideasText })
+    }
     console.log('[process-recording] Parsed results', {
       journalTitle: journalJson.title,
       moodPrimary: moodJson.mood_primary,
@@ -214,10 +231,14 @@ Return JSON with an ideas array. If no clear ideas are found, still try to surfa
     }
 
     const ideasToInsert = ideasJson.ideas.map((idea) => ({ user_id: userId, entry_id: entry.id, content: idea.content, category: idea.category, idea_type: idea.idea_type ?? 'other', details: idea.details ?? '' }))
+    // Log the ideas array before inserting so we can confirm it's not empty and the shape is correct
+    console.log('[process-recording] Ideas array before Supabase insert:', JSON.stringify(ideasToInsert))
     console.log('[process-recording] Inserting ideas', { count: ideasToInsert.length, entryId: entry.id })
     const { data: insertedIdeas, error: ideasError } = ideasToInsert.length
       ? await supabase.from('ideas').insert(ideasToInsert).select('id,content,category,idea_type,details')
       : { data: [], error: null }
+    // Log the insert result to catch any silent failures (schema mismatch, RLS, etc.)
+    console.log('[process-recording] Supabase ideas insert result', { insertedCount: insertedIdeas?.length ?? 0, error: ideasError?.message ?? null })
 
     if (ideasError) {
       console.error('[process-recording] Ideas insert failed', { error: ideasError.message, entryId: entry.id })

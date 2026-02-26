@@ -7,19 +7,22 @@ interface ParsedIdeas {
   ideas: Array<{ content: string; category: string; idea_type: string; details: string }>
 }
 
-const ideasSystemPrompt = `You are an AI idea extraction helper. Analyze this journal entry and extract actionable ideas. For each idea found, return it with:
-- content: a clear, concise description of the idea
-- category: one of "business", "creative", "goal", "action", "other"
-- idea_type: one of "business_idea" (potential business or money-making concepts), "problem_solution" (ways to solve problems mentioned), "concept" (interesting concepts worth developing further), "action_step" (specific actionable next steps or creative directions)
-- details: an expanded explanation (2-3 sentences) that develops the idea further, suggests how to pursue it, or explains why it's worth exploring
+const ideasSystemPrompt = `You are an idea extraction assistant. Analyze the journal entry and extract any business ideas, creative ideas, goals, or action items. Respond ONLY with a valid JSON object in this exact format, no markdown code fences, no other text:
+{
+  "ideas": [
+    {
+      "content": "clear concise description of the idea",
+      "category": "business",
+      "idea_type": "business_idea",
+      "details": "expanded explanation in 2-3 sentences"
+    }
+  ]
+}
 
-Look for:
-- Business ideas mentioned or implied
-- Solutions to problems the user describes
-- Concepts worth developing and expanding on
-- Actionable next steps or creative directions
+Valid values for category: "business", "creative", "goal", "action", "other"
+Valid values for idea_type: "business_idea", "problem_solution", "concept", "action_step"
 
-Return JSON with an ideas array. If no clear ideas are found, still try to surface at least one actionable suggestion based on what the user is thinking about.`
+If no ideas are found, return exactly: {"ideas": []}`
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -69,34 +72,27 @@ serve(async (req) => {
       )
     }
 
-    // Fetch entry IDs that already have at least one idea
-    const { data: existingIdeas, error: existingErr } = await supabase
-      .from('ideas')
-      .select('entry_id')
-      .eq('user_id', userId)
+    // TEMPORARILY DISABLED: Dedup check bypassed for debugging — was potentially blocking all inserts.
+    // Re-enable once we confirm ideas are being saved correctly.
+    // const { data: existingIdeas, error: existingErr } = await supabase
+    //   .from('ideas')
+    //   .select('entry_id')
+    //   .eq('user_id', userId)
+    // if (existingErr) {
+    //   throw new Error('Failed to check existing ideas: ' + existingErr.message)
+    // }
+    // const coveredEntryIds = new Set((existingIdeas ?? []).map((r: { entry_id: string }) => r.entry_id))
+    // const uncoveredEntries = entries.filter((e: { id: string }) => !coveredEntryIds.has(e.id))
+    // if (uncoveredEntries.length === 0) {
+    //   return new Response(
+    //     JSON.stringify({ processed: 0, created: 0, message: 'All entries already have ideas.' }),
+    //     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+    //   )
+    // }
 
-    if (existingErr) {
-      throw new Error('Failed to check existing ideas: ' + existingErr.message)
-    }
-
-    const coveredEntryIds = new Set((existingIdeas ?? []).map((r: { entry_id: string }) => r.entry_id))
-
-    const uncoveredEntries = entries.filter(
-      (e: { id: string }) => !coveredEntryIds.has(e.id),
-    ) as Array<{ id: string; cleaned_entry?: string; raw_transcript?: string; entry_title?: string }>
-
-    console.log('[backfill-ideas] Entries needing ideas', {
-      total: entries.length,
-      alreadyCovered: coveredEntryIds.size,
-      toProcess: uncoveredEntries.length,
-    })
-
-    if (uncoveredEntries.length === 0) {
-      return new Response(
-        JSON.stringify({ processed: 0, created: 0, message: 'All entries already have ideas.' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      )
-    }
+    // Process all entries while dedup is disabled
+    const uncoveredEntries = entries as Array<{ id: string; cleaned_entry?: string; raw_transcript?: string; entry_title?: string }>
+    console.log('[backfill-ideas] DEDUP DISABLED — processing all entries', { total: uncoveredEntries.length })
 
     let totalCreated = 0
     let totalProcessed = 0
@@ -109,10 +105,6 @@ serve(async (req) => {
       }
 
       console.log('[backfill-ideas] Processing entry', { id: entry.id, textLength: entryText.length })
-
-      const safeParse = <T>(text: string, fallback: T): T => {
-        try { return JSON.parse(text) as T } catch { return fallback }
-      }
 
       let ideasText = ''
       try {
@@ -130,7 +122,22 @@ serve(async (req) => {
         continue
       }
 
-      const ideasJson = safeParse<ParsedIdeas>(ideasText, { ideas: [] })
+      // Log the full raw response before any parsing so we can inspect what OpenAI actually returned
+      console.log('[backfill-ideas] Raw ideas response from OpenAI for entry', entry.id, ':', ideasText)
+
+      // Parse with explicit error logging — strip markdown code fences in case OpenAI wraps the JSON
+      let ideasJson: ParsedIdeas = { ideas: [] }
+      try {
+        const cleanedIdeasText = ideasText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+        ideasJson = JSON.parse(cleanedIdeasText) as ParsedIdeas
+        if (!Array.isArray(ideasJson.ideas)) {
+          console.error('[backfill-ideas] Parsed ideas JSON missing "ideas" array', { entryId: entry.id, ideasJson })
+          ideasJson = { ideas: [] }
+        }
+      } catch (parseErr) {
+        console.error('[backfill-ideas] Failed to parse ideas JSON', { entryId: entry.id, error: String(parseErr), ideasText })
+      }
+
       console.log('[backfill-ideas] Extracted ideas for entry', {
         entryId: entry.id,
         count: ideasJson.ideas.length,
@@ -150,7 +157,11 @@ serve(async (req) => {
         details: idea.details ?? '',
       }))
 
-      const { error: insertErr } = await supabase.from('ideas').insert(toInsert)
+      // Log the array before inserting to confirm it's not empty and fields are correct
+      console.log('[backfill-ideas] Ideas array before Supabase insert for entry', entry.id, ':', JSON.stringify(toInsert))
+      const { data: insertedData, error: insertErr } = await supabase.from('ideas').insert(toInsert).select('id')
+      // Log result to catch silent failures (schema mismatch, RLS policy, etc.)
+      console.log('[backfill-ideas] Supabase insert result for entry', entry.id, ':', { insertedCount: insertedData?.length ?? 0, error: insertErr?.message ?? null })
       if (insertErr) {
         console.error('[backfill-ideas] Insert failed for entry', entry.id, insertErr.message)
       } else {
