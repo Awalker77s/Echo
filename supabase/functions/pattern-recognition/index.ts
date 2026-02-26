@@ -8,6 +8,7 @@ interface PatternResult {
   description: string
   evidence: { entry_id: string; quote: string }[]
   confidence: number
+  advice: string
 }
 
 serve(async (req) => {
@@ -55,7 +56,18 @@ serve(async (req) => {
         text: entry.cleaned_entry,
       }))
 
-      const systemPrompt = 'Analyze journal entries from the past 30 days and identify recurring patterns. Look for recurring topics, mood triggers/correlations, time-of-day emotional patterns, person associations, and resurfacing goals. Return JSON array with fields pattern_type, description, evidence [{entry_id, quote}], confidence (0 to 1).'
+      const systemPrompt = `Analyze these journal entries from the past 30 days and generate meaningful insights. You are a thoughtful, empathetic advisor who notices patterns, behaviors, and themes in someone's life.
+
+For each insight you discover, provide:
+- pattern_type: a category label (e.g. "emotional_pattern", "growth_area", "recurring_theme", "relationship_dynamic", "self_care", "goal_progress", "mindset_shift", "stress_trigger")
+- description: a clear, compassionate description of the pattern or theme you noticed
+- evidence: array of [{entry_id, quote}] with specific quotes from entries that support this insight
+- confidence: 0 to 1 indicating how strongly the evidence supports this insight
+- advice: a thoughtful, constructive piece of guidance (2-3 sentences) that feels like a reflection from a wise friend — not a generic tip, but a personalized observation that offers perspective, encouragement, or a gentle nudge toward growth based on what the user has been journaling about
+
+Focus on generating insights that are genuinely helpful — reflecting on what's going well, what might need attention, and constructive ways to think about challenges. These should feel like thoughtful reflections, not clinical assessments.
+
+Return a JSON array.`
       const openAiKey = Deno.env.get('OPENAI_API_KEY')
       if (!openAiKey) throw new Error('OpenAI API key is missing from server configuration.')
 
@@ -91,6 +103,7 @@ serve(async (req) => {
           description: pattern.description,
           evidence: pattern.evidence ?? [],
           confidence: Math.max(0, Math.min(1, Number(pattern.confidence ?? 0))),
+          advice: pattern.advice ?? '',
           surfaced_at: new Date().toISOString(),
           dismissed: false,
         }))

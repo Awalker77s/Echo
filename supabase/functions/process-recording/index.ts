@@ -4,8 +4,8 @@ import { callOpenAIResponses, callWhisperTranscription } from '../_shared/openai
 import { corsHeaders } from '../_shared/cors.ts'
 
 interface ParsedJournal { title: string; entry: string }
-interface ParsedMood { mood_primary: string; mood_score: number; mood_tags: string[] }
-interface ParsedIdeas { ideas: Array<{ content: string; category: string }> }
+interface ParsedMood { mood_primary: string; mood_score: number; mood_tags: string[]; mood_level: string }
+interface ParsedIdeas { ideas: Array<{ content: string; category: string; idea_type: string; details: string }> }
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -96,10 +96,37 @@ serve(async (req) => {
     const transcript = await callWhisperTranscription({ apiKey: openAiKey, audio })
 
     console.log('[process-recording] Calling OpenAI journal/mood/idea prompts')
+    const moodSystemPrompt = `Analyze the mood of this journal entry by examining the key words and overall tone. Return JSON with:
+- mood_primary: a single descriptive word (e.g. "joyful", "anxious", "reflective")
+- mood_score: a float from -1 (most negative) to 1 (most positive)
+- mood_tags: array of 2-4 mood descriptor words
+- mood_level: classify into exactly one of these five levels based on keyword analysis: "Extremely Positive", "Positive", "Neutral", "Negative", or "Extremely Negative"
+
+Classification guide:
+- "Extremely Positive": Words like amazing, fantastic, thrilled, ecstatic, grateful, blessed, wonderful, incredible, love, celebrate
+- "Positive": Words like good, happy, pleased, hopeful, excited, proud, enjoyed, nice, better, optimistic
+- "Neutral": Words like okay, fine, normal, routine, usual, standard, balanced, steady, regular
+- "Negative": Words like sad, worried, frustrated, tired, stressed, anxious, disappointed, difficult, struggling
+- "Extremely Negative": Words like devastated, hopeless, terrible, awful, miserable, depressed, overwhelmed, broken, desperate`
+
+    const ideasSystemPrompt = `You are an AI idea extraction helper. Analyze this journal entry and extract actionable ideas. For each idea found, return it with:
+- content: a clear, concise description of the idea
+- category: one of "business", "creative", "goal", "action", "other"
+- idea_type: one of "business_idea" (potential business or money-making concepts), "problem_solution" (ways to solve problems mentioned), "concept" (interesting concepts worth developing further), "action_step" (specific actionable next steps or creative directions)
+- details: an expanded explanation (2-3 sentences) that develops the idea further, suggests how to pursue it, or explains why it's worth exploring
+
+Look for:
+- Business ideas mentioned or implied
+- Solutions to problems the user describes
+- Concepts worth developing and expanding on
+- Actionable next steps or creative directions
+
+Return JSON with an ideas array. If no clear ideas are found, still try to surface at least one actionable suggestion based on what the user is thinking about.`
+
     const [journalText, moodText, ideasText] = await Promise.all([
       callOpenAIResponses({ model: 'gpt-4o', temperature: 0.7, apiKey: openAiKey, input: [{ role: 'system', content: 'Transform the transcript into JSON with keys title and entry.' }, { role: 'user', content: transcript }] }),
-      callOpenAIResponses({ model: 'gpt-4o', temperature: 0.3, apiKey: openAiKey, input: [{ role: 'system', content: 'Analyze mood and return JSON with mood_primary, mood_score, mood_tags.' }, { role: 'user', content: transcript }] }),
-      callOpenAIResponses({ model: 'gpt-4o', temperature: 0.3, apiKey: openAiKey, input: [{ role: 'system', content: 'Extract ideas and return JSON with an ideas array containing content and category.' }, { role: 'user', content: transcript }] }),
+      callOpenAIResponses({ model: 'gpt-4o', temperature: 0.3, apiKey: openAiKey, input: [{ role: 'system', content: moodSystemPrompt }, { role: 'user', content: transcript }] }),
+      callOpenAIResponses({ model: 'gpt-4o', temperature: 0.4, apiKey: openAiKey, input: [{ role: 'system', content: ideasSystemPrompt }, { role: 'user', content: transcript }] }),
     ])
 
     const safeParse = <T>(text: string, fallback: T): T => {
@@ -111,7 +138,7 @@ serve(async (req) => {
     }
 
     const journalJson = safeParse<ParsedJournal>(journalText, { title: 'Untitled Entry', entry: transcript })
-    const moodJson = safeParse<ParsedMood>(moodText, { mood_primary: 'reflective', mood_score: 0, mood_tags: ['reflective'] })
+    const moodJson = safeParse<ParsedMood>(moodText, { mood_primary: 'reflective', mood_score: 0, mood_tags: ['reflective'], mood_level: 'Neutral' })
     const ideasJson = safeParse<ParsedIdeas>(ideasText, { ideas: [] })
 
     const recordedAt = new Date().toISOString()
@@ -130,6 +157,7 @@ serve(async (req) => {
         mood_primary: moodJson.mood_primary,
         mood_score: moodJson.mood_score,
         mood_tags: moodJson.mood_tags,
+        mood_level: moodJson.mood_level,
         themes: [],
         recorded_at: recordedAt,
         word_count: journalJson.entry.split(/\s+/).length,
@@ -149,6 +177,7 @@ serve(async (req) => {
       mood_primary: moodJson.mood_primary,
       mood_score: moodJson.mood_score,
       mood_tags: moodJson.mood_tags,
+      mood_level: moodJson.mood_level,
       recorded_at: recordedAt,
     })
     if (moodError) {
@@ -156,10 +185,10 @@ serve(async (req) => {
       throw new Error('Failed to save mood history.')
     }
 
-    const ideasToInsert = ideasJson.ideas.map((idea) => ({ user_id: userId, entry_id: entry.id, content: idea.content, category: idea.category }))
+    const ideasToInsert = ideasJson.ideas.map((idea) => ({ user_id: userId, entry_id: entry.id, content: idea.content, category: idea.category, idea_type: idea.idea_type ?? 'other', details: idea.details ?? '' }))
     console.log('[process-recording] Inserting ideas', { count: ideasToInsert.length, entryId: entry.id })
     const { data: insertedIdeas, error: ideasError } = ideasToInsert.length
-      ? await supabase.from('ideas').insert(ideasToInsert).select('id,content,category')
+      ? await supabase.from('ideas').insert(ideasToInsert).select('id,content,category,idea_type,details')
       : { data: [], error: null }
 
     if (ideasError) {
@@ -174,6 +203,7 @@ serve(async (req) => {
       mood_primary: entry.mood_primary,
       mood_score: entry.mood_score,
       mood_tags: entry.mood_tags,
+      mood_level: entry.mood_level,
       themes: entry.themes,
       ideas: insertedIdeas ?? [],
       duration_seconds: entry.duration_seconds,

@@ -46,7 +46,23 @@ serve(async (req) => {
 
       if (!entries?.length) continue
 
-      const prompt = 'Synthesize the month into a third-person compassionate narrative chapter. Highlight emotional arcs, growth moments, recurring themes, and significant events. Return JSON with title, narrative, top_themes, mood_summary, growth_moments.'
+      const prompt = `You are a gifted memoirist writing a chapter of someone's life story. Based on these journal entries from the past month, craft a compelling, personal narrative chapter.
+
+Write in the third person with warmth and literary grace. The chapter should:
+- Read like a short story from a memoir — not a summary or bullet points
+- Weave together the themes, emotions, growth, and key moments into a cohesive narrative arc
+- Include an opening that sets the scene and a closing that offers reflection
+- Capture the emotional journey: where they started the month, what they went through, and where they ended up
+- Highlight turning points, small victories, challenges faced, and moments of clarity
+- Use vivid, specific details drawn from the entries to make it feel personal and real
+- Feel like something the person would treasure reading back years later
+
+Return JSON with:
+- title: an evocative chapter title (not just the month name)
+- narrative: the full narrative text (multiple paragraphs separated by newlines, at least 4-6 paragraphs)
+- top_themes: array of 3-5 key themes from the month
+- mood_summary: object with "overall" (the dominant emotional tone), "arc" (how mood shifted across the month), and "highlights" (array of notable emotional moments)
+- growth_moments: array of objects with "moment" (description of a growth moment) and "significance" (why it matters)`
       const openAiKey = Deno.env.get('OPENAI_API_KEY')
       if (!openAiKey) throw new Error('OpenAI API key is missing from server configuration.')
 

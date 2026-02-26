@@ -47,30 +47,45 @@ export function InsightsPage() {
   return (
     <FeatureGate userPlan={plan} requiredPlan="memoir" featureName="Insights">
       <main className="space-y-4">
-        <h2 className="serif-reading text-3xl text-[#302a4c]">Gentle insights</h2>
-        <p className="text-sm text-[#6c7386]">Here’s what seems to be recurring in your recent reflections.</p>
+        <div>
+          <h2 className="serif-reading text-3xl text-[#302a4c]">Gentle insights</h2>
+          <p className="mt-1 text-sm text-[#6c7386]">Thoughtful reflections and guidance drawn from patterns in your recent journal entries.</p>
+        </div>
         {error && <ErrorState message={error} onAction={() => void loadPatterns()} actionLabel="Try again" />}
 
         {patterns.length === 0 && <div className="app-card p-4 text-[#6b7386]">No active insights yet. Keep journaling to uncover patterns.</div>}
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           {patterns.map((pattern) => {
             const strength = Math.max(8, Math.round((pattern.confidence ?? 0.1) * 100))
             return (
-              <article key={pattern.id} className="app-card bg-gradient-to-br from-[#efeaff] to-[#fff7ef] p-5">
-                <p className="text-xs uppercase tracking-[0.14em] text-[#7c7f96]">{pattern.pattern_type.replace(/_/g, ' ')}</p>
-                <h3 className="mt-2 text-lg font-semibold text-[#2f3350]">{pattern.description}</h3>
-                <div className="mt-3 h-2 rounded-full bg-white/80"><div className="h-full rounded-full bg-[#7d74d2]" style={{ width: `${strength}%` }} /></div>
-                <p className="mt-2 text-xs text-[#757b90]">Confidence appears {strength > 66 ? 'strong' : strength > 33 ? 'moderate' : 'gentle'}.</p>
-                <div className="mt-3 space-y-2 text-sm text-[#5f667a]">
-                  {pattern.evidence?.map((item, index) => (
-                    <div key={`${pattern.id}-${index}`} className="rounded-2xl bg-white/65 p-3">
-                      <Link className="font-medium text-[#4b438f] underline" to={`/entries/${item.entry_id}`}>Show Me</Link>
-                      <p className="mt-1 italic">“{item.quote}”</p>
+              <article key={pattern.id} className="app-card overflow-hidden bg-gradient-to-br from-[#efeaff] to-[#fff7ef]">
+                <div className="p-5">
+                  <p className="text-xs uppercase tracking-[0.14em] text-[#7c7f96]">{pattern.pattern_type.replace(/_/g, ' ')}</p>
+                  <h3 className="mt-2 text-lg font-semibold text-[#2f3350]">{pattern.description}</h3>
+
+                  <div className="mt-3 h-2 rounded-full bg-white/80"><div className="h-full rounded-full bg-[#7d74d2]" style={{ width: `${strength}%` }} /></div>
+                  <p className="mt-2 text-xs text-[#757b90]">Confidence appears {strength > 66 ? 'strong' : strength > 33 ? 'moderate' : 'gentle'}.</p>
+
+                  {/* Reflective advice section */}
+                  {pattern.advice && (
+                    <div className="mt-4 rounded-2xl bg-gradient-to-r from-[#f0edff] to-[#fef8f0] p-4">
+                      <p className="mb-1 text-xs font-medium uppercase tracking-[0.12em] text-[#7d74d2]">Reflection</p>
+                      <p className="text-sm leading-relaxed text-[#3d3660]">{pattern.advice}</p>
                     </div>
-                  ))}
+                  )}
+
+                  {/* Evidence quotes */}
+                  <div className="mt-3 space-y-2 text-sm text-[#5f667a]">
+                    {pattern.evidence?.map((item, index) => (
+                      <div key={`${pattern.id}-${index}`} className="rounded-2xl bg-white/65 p-3">
+                        <Link className="font-medium text-[#4b438f] underline" to={`/entries/${item.entry_id}`}>Show Me</Link>
+                        <p className="mt-1 italic">&ldquo;{item.quote}&rdquo;</p>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => void dismissPattern(pattern.id)} className="soft-pill mt-3">Dismiss insight</button>
                 </div>
-                <button onClick={() => void dismissPattern(pattern.id)} className="soft-pill mt-3">Dismiss insight</button>
               </article>
             )
           })}
