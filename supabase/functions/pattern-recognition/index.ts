@@ -88,7 +88,12 @@ Return a JSON array.`
 
       let patterns: PatternResult[] = []
       try {
-        patterns = JSON.parse(outputText) as PatternResult[]
+        const cleanedText = outputText
+          .replace(/^```json\s*/i, '')
+          .replace(/^```\s*/i, '')
+          .replace(/```\s*$/i, '')
+          .trim()
+        patterns = JSON.parse(cleanedText) as PatternResult[]
       } catch {
         patterns = []
       }
