@@ -7,7 +7,13 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error('[generate-chapter] Missing Supabase config', { hasUrl: Boolean(supabaseUrl), hasKey: Boolean(serviceRoleKey) })
+      throw new Error('Server is missing Supabase configuration.')
+    }
+    const supabase = createClient(supabaseUrl, serviceRoleKey)
 
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
     const userId = typeof body.userId === 'string' ? body.userId : null

@@ -7,21 +7,31 @@ interface InvokeOptions {
 
 export async function invokeEdgeFunction<T>(name: string, options: InvokeOptions = {}) {
   if (!supabase) {
-    return { data: null as T | null, error: new Error('Supabase is not configured.') }
+    const err = new Error('Supabase is not configured. Check your .env file.')
+    console.error(`[edgeFunction:${name}]`, err.message)
+    return { data: null as T | null, error: err }
   }
 
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData.session?.access_token
 
   if (!accessToken) {
-    return { data: null as T | null, error: new Error('You must be logged in to call this endpoint.') }
+    const err = new Error('You must be logged in to call this endpoint.')
+    console.error(`[edgeFunction:${name}]`, err.message)
+    return { data: null as T | null, error: err }
   }
 
-  return supabase.functions.invoke<T>(name, {
+  const result = await supabase.functions.invoke<T>(name, {
     body: options.body,
     headers: {
       Authorization: `Bearer ${accessToken}`,
       apikey: env.supabaseAnonKey,
     },
   })
+
+  if (result.error) {
+    console.error(`[edgeFunction:${name}] Failed:`, result.error.message)
+  }
+
+  return result
 }

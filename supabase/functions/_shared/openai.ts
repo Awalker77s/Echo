@@ -9,21 +9,39 @@ export async function callOpenAIResponses(args: {
   temperature?: number
   input: OpenAIInputMessage[]
 }) {
+  // The Responses API uses "instructions" for system-level prompts and does
+  // not accept role:"system" in the input array. Extract system messages into
+  // the "instructions" field and pass everything else as input.
+  const systemMessages = args.input.filter((m) => m.role === 'system')
+  const conversationMessages = args.input.filter((m) => m.role !== 'system')
+
+  const body: Record<string, unknown> = {
+    model: args.model,
+    input: conversationMessages,
+  }
+
+  if (args.temperature !== undefined) {
+    body.temperature = args.temperature
+  }
+
+  if (systemMessages.length > 0) {
+    body.instructions = systemMessages.map((m) => m.content).join('\n\n')
+  }
+
+  console.log(`[openai] Calling Responses API (model=${args.model}, instructions=${systemMessages.length > 0 ? 'yes' : 'none'}, messages=${conversationMessages.length})`)
+
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${args.apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: args.model,
-      temperature: args.temperature,
-      input: args.input,
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {
     const text = await response.text()
+    console.error(`[openai] Responses API error (${response.status}):`, text)
     throw new Error(`OpenAI responses API failed (${response.status}): ${text}`)
   }
 
