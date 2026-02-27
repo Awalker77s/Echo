@@ -9,7 +9,6 @@ import { HomePage } from './pages/HomePage'
 import { IdeasVaultPage } from './pages/IdeasVaultPage'
 import { InsightsPage } from './pages/InsightsPage'
 import { LoginPage } from './pages/LoginPage'
-import { MemoirPrintPage } from './pages/MemoirPrintPage'
 import { MoodDashboardPage } from './pages/MoodDashboardPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -41,7 +40,6 @@ export default function App() {
       <Route path="/insights" element={<ProtectedLayout><InsightsPage /></ProtectedLayout>} />
       <Route path="/chapters" element={<ProtectedLayout><ChapterReportsPage /></ProtectedLayout>} />
       <Route path="/subscription" element={<ProtectedLayout><SubscriptionPage /></ProtectedLayout>} />
-      <Route path="/memoir-print" element={<ProtectedLayout><MemoirPrintPage /></ProtectedLayout>} />
       <Route path="/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

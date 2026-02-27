@@ -23,7 +23,6 @@ const mobileLinks = [
 const menuItems = [
   { to: '/settings', label: 'Settings', icon: '⚙' },
   { to: '/subscription', label: 'Subscription', icon: '✧' },
-  { to: '/memoir-print', label: 'Print', icon: '☰' },
 ]
 
 export function AppShell({ children }: PropsWithChildren) {
@@ -74,7 +73,7 @@ export function AppShell({ children }: PropsWithChildren) {
               <button
                 onClick={() => setMenuOpen((v) => !v)}
                 className={`rounded-full px-3 py-2 transition ${
-                  menuOpen || ['/settings', '/subscription', '/memoir-print'].includes(location.pathname)
+                  menuOpen || ['/settings', '/subscription'].includes(location.pathname)
                     ? 'bg-[#e6e1fb] text-[#423b84] dark:bg-[#31295e] dark:text-[#b9b3ff]'
                     : 'text-[#616776] hover:bg-[#f1ece6] dark:text-slate-300 dark:hover:bg-slate-800'
                 }`}

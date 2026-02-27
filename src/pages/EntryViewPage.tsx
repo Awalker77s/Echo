@@ -86,14 +86,14 @@ export function EntryViewPage() {
   if (error || !entry) return <ErrorState message={error ?? 'Entry not found.'} />
 
   return (
-    <motion.main initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+    <motion.main initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 dark:text-gray-100">
       <section className="app-card p-6 md:p-8">
         {editingTitle ? (
           <input
             ref={titleInputRef}
             id="entry-title"
             name="entry-title"
-            className="serif-reading w-full bg-transparent text-4xl text-[#2d2948] outline-none border-b-2 border-[#7f78d4]"
+            className="serif-reading w-full bg-transparent text-4xl text-[#2d2948] outline-none border-b-2 border-[#7f78d4] dark:text-gray-100"
             value={titleDraft}
             placeholder="Untitled Entry"
             onChange={(e) => setTitleDraft(e.target.value)}
@@ -103,7 +103,7 @@ export function EntryViewPage() {
           />
         ) : (
           <h2
-            className="serif-reading text-4xl text-[#2d2948] cursor-pointer hover:border-b-2 hover:border-dashed hover:border-[#7f78d4]/40"
+            className="serif-reading text-4xl text-[#2d2948] cursor-pointer hover:border-b-2 hover:border-dashed hover:border-[#7f78d4]/40 dark:text-gray-100"
             onClick={() => { setEditingTitle(true); setTimeout(() => titleInputRef.current?.focus(), 0) }}
             title="Click to edit title"
           >
@@ -118,37 +118,37 @@ export function EntryViewPage() {
 
       {audioUrl && (
         <section className="app-card p-5">
-          <h3 className="text-sm font-semibold text-[#636b7e]">Original voice</h3>
-          <div className="mt-3 rounded-2xl bg-[#f7f2ed] p-3">
-            <div className="mb-2 h-8 rounded-xl bg-gradient-to-r from-[#d9d4ff] via-[#ece8ff] to-[#d8d3ff]" />
+          <h3 className="text-sm font-semibold text-[#636b7e] dark:text-slate-400">Original voice</h3>
+          <div className="mt-3 rounded-2xl bg-[#f7f2ed] p-3 dark:bg-slate-700">
+            <div className="mb-2 h-8 rounded-xl bg-gradient-to-r from-[#d9d4ff] via-[#ece8ff] to-[#d8d3ff] dark:from-[#37306f] dark:via-[#4a428a] dark:to-[#37306f]" />
             <audio controls className="w-full" src={audioUrl} />
           </div>
         </section>
       )}
 
       <section className="app-card p-5">
-        <h3 className="mb-2 text-sm font-semibold text-[#636b7e]">Edit entry</h3>
+        <h3 className="mb-2 text-sm font-semibold text-[#636b7e] dark:text-slate-400">Edit entry</h3>
         <form onSubmit={(event) => void saveEdits(event)} className="space-y-3">
-          <textarea id="entry-body" name="entry-body" className="min-h-56 w-full rounded-2xl bg-[#f8f3ed] p-4 text-[#3d4254] outline-none" value={draft} onChange={(event) => setDraft(event.target.value)} />
+          <textarea id="entry-body" name="entry-body" className="min-h-56 w-full rounded-2xl bg-[#f8f3ed] p-4 text-[#3d4254] outline-none dark:bg-slate-700 dark:text-gray-100" value={draft} onChange={(event) => setDraft(event.target.value)} />
           <button className="premium-button">Save changes</button>
-          {saveState && <p className="text-sm text-[#636b7e]">{saveState}</p>}
+          {saveState && <p className="text-sm text-[#636b7e] dark:text-slate-400">{saveState}</p>}
         </form>
       </section>
 
       <section className="app-card p-5">
         <button className="flex w-full items-center justify-between" onClick={() => setShowIdeas((value) => !value)}>
-          <h3 className="text-lg font-semibold text-[#2f3551]">Extracted ideas</h3>
+          <h3 className="text-lg font-semibold text-[#2f3551] dark:text-gray-100">Extracted ideas</h3>
           <span className="soft-pill">{showIdeas ? 'Hide' : 'Show'}</span>
         </button>
         {showIdeas && (
           <ul className="mt-3 space-y-2">
             {ideas.map((idea) => (
-              <li key={idea.id} className="rounded-2xl bg-[#f8f3ee] p-3">
-                <p>{idea.content}</p>
-                <p className="mt-1 text-xs uppercase tracking-wide text-[#83889b]">{idea.category}</p>
+              <li key={idea.id} className="rounded-2xl bg-[#f8f3ee] p-3 dark:bg-slate-700">
+                <p className="dark:text-gray-200">{idea.content}</p>
+                <p className="mt-1 text-xs uppercase tracking-wide text-[#83889b] dark:text-slate-400">{idea.category}</p>
               </li>
             ))}
-            {!ideas.length && <li className="text-sm text-[#6b7386]">No ideas were extracted for this entry.</li>}
+            {!ideas.length && <li className="text-sm text-[#6b7386] dark:text-slate-400">No ideas were extracted for this entry.</li>}
           </ul>
         )}
       </section>

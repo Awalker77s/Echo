@@ -125,7 +125,7 @@ export function InsightsPage() {
           {insights.map((insight) => {
             const typeStyle = getInsightTypeStyle(insight.insight_type)
             return (
-              <li key={insight.id} className="app-card overflow-hidden bg-gradient-to-br from-[#efeaff] to-[#fff7ef]">
+              <li key={insight.id} className="app-card overflow-hidden bg-gradient-to-br from-[#efeaff] to-[#fff7ef] dark:from-slate-800 dark:to-slate-800/80">
                 <div className="p-5">
                   {typeStyle && (
                     <span
@@ -135,7 +135,7 @@ export function InsightsPage() {
                       {typeStyle.label}
                     </span>
                   )}
-                  <p className="text-sm leading-relaxed text-[#3d3660]">{insight.content}</p>
+                  <p className="text-sm leading-relaxed text-[#3d3660] dark:text-gray-200">{insight.content}</p>
                 </div>
               </li>
             )
