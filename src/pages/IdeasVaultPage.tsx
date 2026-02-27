@@ -9,11 +9,11 @@ import type { Idea } from '../types'
 
 const categories = ['all', 'business', 'creative', 'goal', 'action', 'other'] as const
 
-const ideaTypeConfig: Record<string, { label: string; color: string; bg: string }> = {
-  business_idea: { label: 'Business Idea', color: '#6b4c9a', bg: '#ede6fa' },
-  problem_solution: { label: 'Problem Solution', color: '#2d7d6f', bg: '#daf2ed' },
-  concept: { label: 'Concept', color: '#8a6d3b', bg: '#f5edd6' },
-  action_step: { label: 'Action Step', color: '#3d6b8a', bg: '#d9edf8' },
+const ideaTypeConfig: Record<string, { label: string; color: string; bg: string; darkColor: string; darkBg: string }> = {
+  business_idea: { label: 'Business Idea', color: '#6b4c9a', bg: '#ede6fa', darkColor: '#c4bdff', darkBg: '#37306f' },
+  problem_solution: { label: 'Problem Solution', color: '#2d7d6f', bg: '#daf2ed', darkColor: '#6ee7df', darkBg: '#134e4a' },
+  concept: { label: 'Concept', color: '#8a6d3b', bg: '#f5edd6', darkColor: '#fcd34d', darkBg: '#451a03' },
+  action_step: { label: 'Action Step', color: '#3d6b8a', bg: '#d9edf8', darkColor: '#7dd3fc', darkBg: '#0c4a6e' },
 }
 
 function getIdeaTypeStyle(ideaType?: string) {
@@ -108,32 +108,32 @@ export function IdeasVaultPage() {
           </button>
         </div>
         {error && <ErrorState message={error} onAction={() => void load()} actionLabel="Try again" />}
-        <input id="ideas-search" name="ideas-search" className="app-card w-full px-4 py-3 text-sm outline-none dark:bg-slate-800 dark:text-gray-100" placeholder="Search ideas and details..." value={query} onChange={(event) => setQuery(event.target.value)} />
+        <input id="ideas-search" name="ideas-search" className="app-card w-full px-4 py-3 text-sm outline-none dark:bg-slate-800 dark:text-gray-100 dark:placeholder:text-slate-400" placeholder="Search ideas and details..." value={query} onChange={(event) => setQuery(event.target.value)} />
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2">
           {categories.map((value) => (
-            <button key={value} onClick={() => setCategory(value)} className={`soft-pill whitespace-nowrap capitalize ${category === value ? 'bg-[#e6e1fb] text-[#4a438b]' : ''}`}>
+            <button key={value} onClick={() => setCategory(value)} className={`soft-pill whitespace-nowrap capitalize ${category === value ? 'bg-[#e6e1fb] text-[#4a438b] dark:bg-[#37306f] dark:text-[#c4bdff]' : ''}`}>
               {value}
             </button>
           ))}
-          <button onClick={() => setStarredOnly((value) => !value)} className={`soft-pill whitespace-nowrap ${starredOnly ? 'bg-[#efe2ba] text-[#73561f]' : ''}`}>
+          <button onClick={() => setStarredOnly((value) => !value)} className={`soft-pill whitespace-nowrap ${starredOnly ? 'bg-[#efe2ba] text-[#73561f] dark:bg-amber-900/60 dark:text-amber-300' : ''}`}>
             Starred only
           </button>
         </div>
 
         {backfillResult && (
-          <div className="app-card p-3 text-sm text-[#2d7d6f]">{backfillResult}</div>
+          <div className="app-card p-3 text-sm text-[#2d7d6f] dark:text-emerald-400">{backfillResult}</div>
         )}
 
         {filtered.length === 0 && !loading && (
           <div className="app-card space-y-3 p-5 text-center">
-            <p className="text-[#6b7386]">
+            <p className="text-[#6b7386] dark:text-slate-400">
               {query || starredOnly || category !== 'all'
                 ? 'No ideas match your current filters.'
                 : 'No ideas yet — record a journal entry to get started.'}
             </p>
             {!query && !starredOnly && category === 'all' && (
               <div className="space-y-2">
-                <p className="text-xs text-[#9196a6]">Already have journal entries? Use the button below to extract ideas from them.</p>
+                <p className="text-xs text-[#9196a6] dark:text-slate-400">Already have journal entries? Use the button below to extract ideas from them.</p>
                 <button
                   onClick={() => void runBackfill()}
                   disabled={backfilling}
@@ -151,19 +151,34 @@ export function IdeasVaultPage() {
             const typeStyle = getIdeaTypeStyle(idea.idea_type)
             const isExpanded = expandedId === idea.id
             return (
-              <li key={idea.id} className="app-card overflow-hidden">
-                <div className="p-4">
+              <li key={idea.id} className="app-card overflow-hidden bg-gradient-to-br from-[#efeaff] to-[#fff7ef] dark:from-slate-800 dark:to-slate-800/80">
+                <div className="p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       {typeStyle && (
-                        <span className="mb-2 inline-block rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: typeStyle.color, backgroundColor: typeStyle.bg }}>
+                        <span
+                          className="mb-3 inline-block rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider dark:hidden"
+                          style={{ color: typeStyle.color, backgroundColor: typeStyle.bg }}
+                        >
                           {typeStyle.label}
                         </span>
                       )}
-                      <p className="text-sm font-medium leading-relaxed text-[#3d4254]">{idea.content}</p>
-                      <p className="mt-2 text-xs uppercase tracking-wide text-[#7c8296]">{idea.category}</p>
+                      {typeStyle && (
+                        <span
+                          className="mb-3 hidden rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider dark:inline-block"
+                          style={{ color: typeStyle.darkColor, backgroundColor: typeStyle.darkBg }}
+                        >
+                          {typeStyle.label}
+                        </span>
+                      )}
+                      <p className="text-sm font-medium leading-relaxed text-[#3d3660] dark:text-gray-100">{idea.content}</p>
+                      <p className="mt-2 text-xs uppercase tracking-wide text-[#7c8296] dark:text-slate-400">{idea.category}</p>
                     </div>
-                    <button onClick={() => void toggleStar(idea)} className="shrink-0 rounded-full bg-[#f3efe8] px-3 py-1 text-sm text-[#5e6380]" style={{ animation: bouncingId === idea.id ? 'bounce-star 220ms ease-in-out' : undefined }}>
+                    <button
+                      onClick={() => void toggleStar(idea)}
+                      className="shrink-0 rounded-full bg-white/60 px-3 py-1 text-sm text-[#5e6380] transition hover:bg-white/90 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+                      style={{ animation: bouncingId === idea.id ? 'bounce-star 220ms ease-in-out' : undefined }}
+                    >
                       {idea.is_starred ? '★' : '☆'}
                     </button>
                   </div>
@@ -172,13 +187,13 @@ export function IdeasVaultPage() {
                     <>
                       <button
                         onClick={() => setExpandedId(isExpanded ? null : idea.id)}
-                        className="mt-2 text-xs font-medium text-[#6b5fb5] hover:text-[#4a3f8f]"
+                        className="mt-2 text-xs font-medium text-[#6b5fb5] hover:text-[#4a3f8f] dark:text-[#b9b3ff] dark:hover:text-[#d4d0ff]"
                       >
                         {isExpanded ? 'Hide details' : 'Show details'}
                       </button>
                       {isExpanded && (
-                        <div className="mt-2 rounded-xl bg-[#f9f6ff] p-3">
-                          <p className="text-sm leading-relaxed text-[#4a4e5a]">{idea.details}</p>
+                        <div className="mt-2 rounded-xl bg-white/70 p-3 dark:bg-slate-700/70">
+                          <p className="text-sm leading-relaxed text-[#4a4e5a] dark:text-gray-300">{idea.details}</p>
                         </div>
                       )}
                     </>

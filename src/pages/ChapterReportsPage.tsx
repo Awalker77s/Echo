@@ -65,38 +65,38 @@ export function ChapterReportsPage() {
 
         <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
           {reports.map((report) => (
-            <button key={report.id} onClick={() => setSelected(report.id)} className={`min-w-52 rounded-3xl p-4 text-left ${report.id === selected ? 'bg-[#e8e2ff] text-[#413987]' : 'app-card text-[#5f667a]'}`}>
+            <button key={report.id} onClick={() => setSelected(report.id)} className={`min-w-52 rounded-3xl p-4 text-left ${report.id === selected ? 'bg-[#e8e2ff] text-[#413987] dark:bg-[#31295e] dark:text-[#c4bdff]' : 'app-card text-[#5f667a] dark:text-slate-300'}`}>
               <p className="text-xs uppercase tracking-[0.14em]">{new Date(report.month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</p>
               <p className="serif-reading mt-2 text-lg">{report.title}</p>
-              {report.entry_count > 0 && <p className="mt-1 text-xs text-[#8a859a]">{report.entry_count} entries</p>}
+              {report.entry_count > 0 && <p className="mt-1 text-xs text-[#8a859a] dark:text-slate-400">{report.entry_count} entries</p>}
             </button>
           ))}
         </div>
 
-        <section className="app-card bg-gradient-to-b from-[#fff8f2] to-[#f8f1ea] p-6 md:p-10">
+        <section className="app-card bg-gradient-to-b from-[#fff8f2] to-[#f8f1ea] p-6 dark:from-slate-800 dark:to-slate-900 md:p-10">
           {!activeReport ? (
-            <p className="text-[#6a7284]">No chapters yet. Generate your first month to begin your memoir.</p>
+            <p className="text-[#6a7284] dark:text-slate-400">No chapters yet. Generate your first month to begin your memoir.</p>
           ) : (
-            <article className="space-y-6 text-[#2f2a3e]">
+            <article className="space-y-6 text-[#2f2a3e] dark:text-gray-100">
               <header className="serif-reading">
-                <p className="text-xs uppercase tracking-[0.16em] text-[#82788e]">{new Date(activeReport.month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</p>
-                <h3 className="mt-2 text-4xl">{activeReport.title}</h3>
+                <p className="text-xs uppercase tracking-[0.16em] text-[#82788e] dark:text-slate-400">{new Date(activeReport.month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</p>
+                <h3 className="mt-2 text-4xl dark:text-gray-100">{activeReport.title}</h3>
               </header>
 
               {/* Narrative paragraphs */}
               <div className="serif-reading space-y-5">
                 {activeReport.narrative.split('\n').filter(Boolean).map((paragraph, index) => (
-                  <p key={index} className="indent-6 text-lg leading-[1.9]">{paragraph}</p>
+                  <p key={index} className="indent-6 text-lg leading-[1.9] dark:text-gray-200">{paragraph}</p>
                 ))}
               </div>
 
               {/* Themes */}
               {activeReport.top_themes?.length > 0 && (
-                <div className="rounded-2xl bg-white/50 p-4">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em] text-[#7c7f96]">Themes of the month</p>
+                <div className="rounded-2xl bg-white/50 p-4 dark:bg-slate-700/50">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em] text-[#7c7f96] dark:text-slate-400">Themes of the month</p>
                   <div className="flex flex-wrap gap-2">
                     {activeReport.top_themes.map((theme, index) => (
-                      <span key={index} className="rounded-full bg-[#ede6fa] px-3 py-1 text-sm text-[#5b4f9a]">{theme}</span>
+                      <span key={index} className="rounded-full bg-[#ede6fa] px-3 py-1 text-sm text-[#5b4f9a] dark:bg-[#37306f] dark:text-[#c4bdff]">{theme}</span>
                     ))}
                   </div>
                 </div>
@@ -104,20 +104,20 @@ export function ChapterReportsPage() {
 
               {/* Mood Summary */}
               {moodSummary && (moodSummary.overall || moodSummary.arc) && (
-                <div className="rounded-2xl bg-gradient-to-r from-[#f0edff] to-[#fef8f0] p-4">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em] text-[#7d74d2]">Emotional landscape</p>
+                <div className="rounded-2xl bg-gradient-to-r from-[#f0edff] to-[#fef8f0] p-4 dark:from-slate-700 dark:to-slate-700">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-[0.12em] text-[#7d74d2] dark:text-[#b9b3ff]">Emotional landscape</p>
                   {moodSummary.overall && (
-                    <p className="text-sm text-[#3d3660]"><span className="font-medium">Overall tone:</span> {moodSummary.overall}</p>
+                    <p className="text-sm text-[#3d3660] dark:text-gray-200"><span className="font-medium">Overall tone:</span> {moodSummary.overall}</p>
                   )}
                   {moodSummary.arc && (
-                    <p className="mt-1 text-sm text-[#3d3660]"><span className="font-medium">Emotional arc:</span> {moodSummary.arc}</p>
+                    <p className="mt-1 text-sm text-[#3d3660] dark:text-gray-200"><span className="font-medium">Emotional arc:</span> {moodSummary.arc}</p>
                   )}
                   {moodSummary.highlights && moodSummary.highlights.length > 0 && (
                     <div className="mt-2">
-                      <p className="text-xs font-medium text-[#6b65a3]">Notable moments:</p>
+                      <p className="text-xs font-medium text-[#6b65a3] dark:text-[#b9b3ff]">Notable moments:</p>
                       <ul className="mt-1 space-y-1">
                         {moodSummary.highlights.map((highlight, index) => (
-                          <li key={index} className="text-sm text-[#4a4e5a]">&bull; {highlight}</li>
+                          <li key={index} className="text-sm text-[#4a4e5a] dark:text-gray-300">&bull; {highlight}</li>
                         ))}
                       </ul>
                     </div>
@@ -127,16 +127,16 @@ export function ChapterReportsPage() {
 
               {/* Growth Moments */}
               {growthMoments && growthMoments.length > 0 && (
-                <div className="rounded-2xl bg-[#eef8f0] p-4">
-                  <p className="mb-3 text-xs font-medium uppercase tracking-[0.12em] text-[#3d7a52]">Growth moments</p>
+                <div className="rounded-2xl bg-[#eef8f0] p-4 dark:bg-slate-700/60">
+                  <p className="mb-3 text-xs font-medium uppercase tracking-[0.12em] text-[#3d7a52] dark:text-emerald-400">Growth moments</p>
                   <div className="space-y-3">
                     {growthMoments.map((item, index) => {
                       const isString = typeof item === 'string'
                       return (
-                        <div key={index} className="rounded-xl bg-white/60 p-3">
-                          <p className="text-sm font-medium text-[#2d5a3e]">{isString ? item : item.moment ?? ''}</p>
+                        <div key={index} className="rounded-xl bg-white/60 p-3 dark:bg-slate-600/60">
+                          <p className="text-sm font-medium text-[#2d5a3e] dark:text-emerald-300">{isString ? item : item.moment ?? ''}</p>
                           {!isString && item.significance && (
-                            <p className="mt-1 text-xs text-[#5a7a66]">{item.significance}</p>
+                            <p className="mt-1 text-xs text-[#5a7a66] dark:text-slate-400">{item.significance}</p>
                           )}
                         </div>
                       )
@@ -147,7 +147,6 @@ export function ChapterReportsPage() {
 
               <div className="flex flex-wrap gap-3 pt-2">
                 <button onClick={() => void shareReport()} className="premium-button">Share</button>
-                <button onClick={() => window.print()} className="soft-pill">Print</button>
               </div>
             </article>
           )}

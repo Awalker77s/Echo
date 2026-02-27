@@ -115,32 +115,38 @@ export function SettingsPage() {
   if (loading) return <LoadingSkeleton lines={6} />
 
   return (
-    <main className="space-y-4">
-      <h2 className="serif-reading text-3xl text-[#302a4c]">Settings</h2>
+    <main className="space-y-4 dark:text-gray-100">
+      <h2 className="serif-reading text-3xl text-[#302a4c] dark:text-gray-100">Settings</h2>
       {error && <ErrorState message={error} onAction={() => void load()} actionLabel="Try again" />}
-      {message && <div className="app-card p-3 text-sm text-[#636b7e]">{message}</div>}
+      {message && <div className="app-card p-3 text-sm text-[#636b7e] dark:text-slate-300">{message}</div>}
 
       <section className="app-card space-y-4 p-5">
-        <h3 className="text-lg font-semibold">Profile & plan</h3>
-        <p className="text-sm text-[#687084]">Current plan: <span className="uppercase text-[#483f89]">{plan}</span></p>
+        <h3 className="text-lg font-semibold dark:text-gray-100">Profile & plan</h3>
+        <p className="text-sm text-[#687084] dark:text-slate-300">Current plan: <span className="uppercase text-[#483f89] dark:text-[#b9b3ff]">{plan}</span></p>
       </section>
 
       <section className="app-card space-y-4 p-5">
-        <h3 className="text-lg font-semibold">Preferences</h3>
-        <label className="flex items-center justify-between rounded-2xl bg-[#f8f2ec] p-3"><span>Weekly summary email</span><input id="weekly-email" name="weekly-email" type="checkbox" checked={weeklyEmail} onChange={(event) => setWeeklyEmail(event.target.checked)} /></label>
-        <label className="flex items-center justify-between rounded-2xl bg-[#f8f2ec] p-3"><span>Insight nudges</span><input id="insight-nudges" name="insight-nudges" type="checkbox" checked={insightNudges} onChange={(event) => setInsightNudges(event.target.checked)} /></label>
+        <h3 className="text-lg font-semibold dark:text-gray-100">Preferences</h3>
+        <label className="flex items-center justify-between rounded-2xl bg-[#f8f2ec] p-3 dark:bg-slate-700">
+          <span className="text-sm text-[#3d4254] dark:text-gray-200">Weekly summary email</span>
+          <input id="weekly-email" name="weekly-email" type="checkbox" checked={weeklyEmail} onChange={(event) => setWeeklyEmail(event.target.checked)} className="h-4 w-4 accent-[#6f6ac8]" />
+        </label>
+        <label className="flex items-center justify-between rounded-2xl bg-[#f8f2ec] p-3 dark:bg-slate-700">
+          <span className="text-sm text-[#3d4254] dark:text-gray-200">Insight nudges</span>
+          <input id="insight-nudges" name="insight-nudges" type="checkbox" checked={insightNudges} onChange={(event) => setInsightNudges(event.target.checked)} className="h-4 w-4 accent-[#6f6ac8]" />
+        </label>
       </section>
 
       <section className="app-card space-y-3 p-5">
-        <h3 className="text-lg font-semibold">Data & sharing</h3>
+        <h3 className="text-lg font-semibold dark:text-gray-100">Data & sharing</h3>
         <button onClick={() => void exportJson()} disabled={busy} className="premium-button">{busy ? 'Preparing export…' : 'Export my data'}</button>
         <button onClick={downloadMoodCard} className="soft-pill">Download mood card</button>
       </section>
 
-      <section className="rounded-3xl bg-[#f6dfe1]/80 p-5 shadow-[0_10px_30px_rgba(142,67,78,0.15)]">
-        <h3 className="text-lg font-semibold text-[#7c3141]">Danger zone</h3>
-        <p className="mt-2 text-sm text-[#8a4c58]">Delete account and all journal data permanently.</p>
-        <button className="mt-3 rounded-2xl bg-[#b86270] px-4 py-2 text-sm font-semibold text-white">Delete account</button>
+      <section className="rounded-3xl bg-[#f6dfe1]/80 p-5 shadow-[0_10px_30px_rgba(142,67,78,0.15)] dark:bg-rose-950/40">
+        <h3 className="text-lg font-semibold text-[#7c3141] dark:text-rose-300">Danger zone</h3>
+        <p className="mt-2 text-sm text-[#8a4c58] dark:text-rose-400">Delete account and all journal data permanently.</p>
+        <button className="mt-3 rounded-2xl bg-[#b86270] px-4 py-2 text-sm font-semibold text-white dark:bg-rose-800">Delete account</button>
       </section>
     </main>
   )

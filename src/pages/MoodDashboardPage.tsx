@@ -13,12 +13,12 @@ const ranges = [
   { key: '180', label: '180D', days: 180 },
 ]
 
-const moodLevels: { level: MoodLevel; color: string; bg: string; border: string }[] = [
-  { level: 'Extremely Positive', color: '#2d8a4e', bg: '#d1f5de', border: '#a3e4b8' },
-  { level: 'Positive', color: '#5a9e6f', bg: '#e4f5ea', border: '#c2e0cc' },
-  { level: 'Neutral', color: '#8a7e3d', bg: '#f5f0d1', border: '#e0d9a3' },
-  { level: 'Negative', color: '#9e6a5a', bg: '#f5e0d8', border: '#e0bfb3' },
-  { level: 'Extremely Negative', color: '#8a3d3d', bg: '#f5d1d1', border: '#e0a3a3' },
+const moodLevels: { level: MoodLevel; color: string; bg: string; border: string; darkColor: string; darkBg: string; darkBorder: string }[] = [
+  { level: 'Extremely Positive', color: '#2d8a4e', bg: '#d1f5de', border: '#a3e4b8', darkColor: '#6ee7b7', darkBg: '#064e3b', darkBorder: '#065f46' },
+  { level: 'Positive', color: '#5a9e6f', bg: '#e4f5ea', border: '#c2e0cc', darkColor: '#86efac', darkBg: '#14532d', darkBorder: '#166534' },
+  { level: 'Neutral', color: '#8a7e3d', bg: '#f5f0d1', border: '#e0d9a3', darkColor: '#fcd34d', darkBg: '#451a03', darkBorder: '#78350f' },
+  { level: 'Negative', color: '#9e6a5a', bg: '#f5e0d8', border: '#e0bfb3', darkColor: '#fca5a5', darkBg: '#450a0a', darkBorder: '#7f1d1d' },
+  { level: 'Extremely Negative', color: '#8a3d3d', bg: '#f5d1d1', border: '#e0a3a3', darkColor: '#f87171', darkBg: '#3b0000', darkBorder: '#991b1b' },
 ]
 
 function scoreMoodLevel(score: number): MoodLevel {
@@ -38,7 +38,16 @@ export function MoodDashboardPage() {
   const [range, setRange] = useState(ranges[0])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
   const { plan, loading: planLoading, error: planError } = useUserPlan()
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'))
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     async function load() {
@@ -105,7 +114,7 @@ export function MoodDashboardPage() {
         <h2 className="serif-reading text-3xl text-[#302b4d] dark:text-gray-100">Mood Dashboard</h2>
         <div className="flex gap-2">
           {ranges.map((r) => (
-            <button key={r.key} onClick={() => setRange(r)} className={`soft-pill ${range.key === r.key ? 'bg-[#e5e0fd] text-[#4e478f]' : ''}`}>
+            <button key={r.key} onClick={() => setRange(r)} className={`soft-pill ${range.key === r.key ? 'bg-[#e5e0fd] text-[#4e478f] dark:bg-[#37306f] dark:text-[#c4bdff]' : ''}`}>
               {r.label}
             </button>
           ))}
@@ -117,9 +126,18 @@ export function MoodDashboardPage() {
             {/* Mood Level Summary */}
             <div className="grid grid-cols-5 gap-2">
               {moodLevels.map((m) => (
-                <div key={m.level} className="rounded-2xl p-3 text-center" style={{ backgroundColor: m.bg, borderColor: m.border, borderWidth: 1, borderStyle: 'solid' }}>
-                  <p className="text-2xl font-semibold" style={{ color: m.color }}>{levelCounts[m.level] ?? 0}</p>
-                  <p className="mt-1 text-[10px] leading-tight sm:text-xs" style={{ color: m.color }}>{m.level}</p>
+                <div
+                  key={m.level}
+                  className="rounded-2xl p-3 text-center"
+                  style={{
+                    backgroundColor: isDark ? m.darkBg : m.bg,
+                    borderColor: isDark ? m.darkBorder : m.border,
+                    borderWidth: 1,
+                    borderStyle: 'solid',
+                  }}
+                >
+                  <p className="text-2xl font-semibold" style={{ color: isDark ? m.darkColor : m.color }}>{levelCounts[m.level] ?? 0}</p>
+                  <p className="mt-1 text-[10px] leading-tight sm:text-xs" style={{ color: isDark ? m.darkColor : m.color }}>{m.level}</p>
                 </div>
               ))}
             </div>
@@ -134,15 +152,15 @@ export function MoodDashboardPage() {
                       <stop offset="95%" stopColor="#7f78d4" stopOpacity={0.03} />
                     </linearGradient>
                   </defs>
-                  <ReferenceArea y1={0.6} y2={1} fill="#d1f5de" fillOpacity={0.5} />
-                  <ReferenceArea y1={0.2} y2={0.6} fill="#e4f5ea" fillOpacity={0.5} />
-                  <ReferenceArea y1={-0.2} y2={0.2} fill="#f5f0d1" fillOpacity={0.5} />
-                  <ReferenceArea y1={-0.6} y2={-0.2} fill="#f5e0d8" fillOpacity={0.5} />
-                  <ReferenceArea y1={-1} y2={-0.6} fill="#f5d1d1" fillOpacity={0.5} />
-                  <CartesianGrid stroke="#e5ddd4" strokeDasharray="3 3" />
-                  <XAxis dataKey="day" tick={{ fill: '#7a7188', fontSize: 11 }} minTickGap={24} />
-                  <YAxis domain={[-1, 1]} tick={{ fill: '#7a7188', fontSize: 11 }} />
-                  <Tooltip contentStyle={{ borderRadius: 14, border: 'none', background: '#fff8f2' }} />
+                  <ReferenceArea y1={0.6} y2={1} fill={isDark ? '#064e3b' : '#d1f5de'} fillOpacity={0.5} />
+                  <ReferenceArea y1={0.2} y2={0.6} fill={isDark ? '#14532d' : '#e4f5ea'} fillOpacity={0.5} />
+                  <ReferenceArea y1={-0.2} y2={0.2} fill={isDark ? '#451a03' : '#f5f0d1'} fillOpacity={0.5} />
+                  <ReferenceArea y1={-0.6} y2={-0.2} fill={isDark ? '#450a0a' : '#f5e0d8'} fillOpacity={0.5} />
+                  <ReferenceArea y1={-1} y2={-0.6} fill={isDark ? '#3b0000' : '#f5d1d1'} fillOpacity={0.5} />
+                  <CartesianGrid stroke={isDark ? '#334155' : '#e5ddd4'} strokeDasharray="3 3" />
+                  <XAxis dataKey="day" tick={{ fill: isDark ? '#94a3b8' : '#7a7188', fontSize: 11 }} minTickGap={24} />
+                  <YAxis domain={[-1, 1]} tick={{ fill: isDark ? '#94a3b8' : '#7a7188', fontSize: 11 }} />
+                  <Tooltip contentStyle={{ borderRadius: 14, border: 'none', background: isDark ? '#1e293b' : '#fff8f2', color: isDark ? '#f3f4f6' : '#2f2a3e' }} />
                   <Area type="monotone" dataKey="score" stroke="#6f6ac8" fillOpacity={1} fill="url(#moodGradient)" strokeWidth={3} isAnimationActive animationDuration={900} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -161,19 +179,24 @@ export function MoodDashboardPage() {
                       <div
                         key={day.date}
                         className="rounded-2xl p-4 transition-transform hover:scale-[1.02]"
-                        style={{ backgroundColor: config.bg, borderColor: config.border, borderWidth: 1, borderStyle: 'solid' }}
+                        style={{
+                          backgroundColor: isDark ? config.darkBg : config.bg,
+                          borderColor: isDark ? config.darkBorder : config.border,
+                          borderWidth: 1,
+                          borderStyle: 'solid',
+                        }}
                       >
-                        <p className="text-xs font-medium text-[#7a7188]">
+                        <p className="text-xs font-medium" style={{ color: isDark ? config.darkColor : '#7a7188' }}>
                           {new Date(day.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
                         </p>
-                        <p className="mt-1 text-sm font-semibold capitalize" style={{ color: config.color }}>{day.primary}</p>
+                        <p className="mt-1 text-sm font-semibold capitalize" style={{ color: isDark ? config.darkColor : config.color }}>{day.primary}</p>
                         <div className="mt-2 flex items-center gap-2">
-                          <div className="h-2 flex-1 rounded-full bg-white/60">
-                            <div className="h-full rounded-full" style={{ backgroundColor: config.color, width: `${Math.round(((Number(day.score) + 1) / 2) * 100)}%` }} />
+                          <div className="h-2 flex-1 rounded-full" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.6)' }}>
+                            <div className="h-full rounded-full" style={{ backgroundColor: isDark ? config.darkColor : config.color, width: `${Math.round(((Number(day.score) + 1) / 2) * 100)}%` }} />
                           </div>
                         </div>
-                        <p className="mt-1 text-xs" style={{ color: config.color }}>{day.level}</p>
-                        {day.count > 1 && <p className="mt-1 text-xs text-[#8a8a9a]">{day.count} entries</p>}
+                        <p className="mt-1 text-xs" style={{ color: isDark ? config.darkColor : config.color }}>{day.level}</p>
+                        {day.count > 1 && <p className="mt-1 text-xs" style={{ color: isDark ? '#94a3b8' : '#8a8a9a' }}>{day.count} entries</p>}
                       </div>
                     )
                   })}

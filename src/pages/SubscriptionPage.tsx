@@ -50,15 +50,15 @@ export function SubscriptionPage() {
   }
 
   return (
-    <main className="space-y-4">
-      <h2 className="serif-reading text-3xl text-[#302b4c]">Subscriptions</h2>
+    <main className="space-y-4 dark:text-gray-100">
+      <h2 className="serif-reading text-3xl text-[#302b4c] dark:text-gray-100">Subscriptions</h2>
       {error && <ErrorState message={error} />}
 
       <section className="app-card p-5">
-        <h3 className="text-lg font-semibold">Send a thoughtful gift</h3>
-        <p className="mt-1 text-sm text-[#6b7386]">Choose a plan and we'll generate a private redemption code after checkout.</p>
+        <h3 className="text-lg font-semibold dark:text-gray-100">Send a thoughtful gift</h3>
+        <p className="mt-1 text-sm text-[#6b7386] dark:text-slate-300">Choose a plan and we'll generate a private redemption code after checkout.</p>
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <select className="rounded-2xl bg-[#f8f2ec] px-3 py-2" value={plan} onChange={(event) => setPlan(event.target.value)}>
+          <select className="rounded-2xl bg-[#f8f2ec] px-3 py-2 dark:bg-slate-700 dark:text-gray-100 dark:border dark:border-gray-600" value={plan} onChange={(event) => setPlan(event.target.value)}>
             {giftPlans.map((giftPlan) => <option key={giftPlan.value} value={giftPlan.value}>{giftPlan.label}</option>)}
           </select>
           <button onClick={() => void purchaseGift()} className="premium-button">Purchase gift</button>
@@ -66,14 +66,14 @@ export function SubscriptionPage() {
       </section>
 
       <section className="app-card p-5">
-        <h3 className="text-lg font-semibold">Redeem a gift code</h3>
+        <h3 className="text-lg font-semibold dark:text-gray-100">Redeem a gift code</h3>
         <form className="mt-3 flex flex-wrap gap-3" onSubmit={(event) => void redeemGift(event)}>
-          <input className="rounded-2xl bg-[#f8f2ec] px-3 py-2" value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="ECHO-XXXXXX" required />
+          <input className="rounded-2xl bg-[#f8f2ec] px-3 py-2 dark:bg-slate-700 dark:text-gray-100 dark:placeholder:text-slate-400 dark:border dark:border-gray-600" value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} placeholder="ECHO-XXXXXX" required />
           <button className="premium-button">Redeem</button>
         </form>
       </section>
 
-      {message && <p className="text-sm text-[#70506f]">{message}</p>}
+      {message && <p className="text-sm text-[#70506f] dark:text-slate-300">{message}</p>}
     </main>
   )
 }
