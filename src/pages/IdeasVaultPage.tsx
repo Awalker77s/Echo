@@ -1,83 +1,56 @@
-import { useCallback, useEffect, useState } from 'react'
-import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, type DragStartEvent, type DragEndEvent, useDroppable } from '@dnd-kit/core'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { DndContext, DragOverlay, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
+import { CommandPalette } from '../components/CommandPalette'
 import { ErrorState } from '../components/ErrorState'
 import { FeatureGate } from '../components/FeatureGate'
-import { IdeaDetailPanel } from '../components/IdeaDetailPanel'
+import { IdeaNetworkCanvas } from '../components/IdeaNetworkCanvas'
+import { InspectorDrawer } from '../components/InspectorDrawer'
 import { LoadingSkeleton } from '../components/LoadingSkeleton'
-import { NeuralCanvas } from '../components/NeuralCanvas'
+import { MinimalHeader } from '../components/MinimalHeader'
+import { OnboardingTooltip } from '../components/OnboardingTooltip'
+import { SavedTreesDrawer } from '../components/SavedTreesDrawer'
 import { TimelinePanel } from '../components/TimelinePanel'
+import { useIdeaTreeStore } from '../hooks/useIdeaTreeStore'
 import { useUserPlan } from '../hooks/useUserPlan'
-import { generateIdeasForEntry, type GeneratedIdea } from '../lib/generateIdeasForEntry'
+import { buildIdeaPrompt, generateIdeasFromContext } from '../lib/ideaEngine'
 import { supabase } from '../lib/supabase'
-import type { JournalEntry } from '../types'
+import type { IdeaEngineSettings, IdeaTree, JournalEntry } from '../types'
 
-function DropZone() {
+function DropTargetLayer() {
   const { setNodeRef, isOver } = useDroppable({ id: 'canvas-drop' })
-
-  return (
-    <div ref={setNodeRef} className="flex h-full w-full items-center justify-center">
-      <motion.div
-        className="flex flex-col items-center gap-4 text-center"
-        animate={isOver ? { scale: 1.05 } : { scale: 1 }}
-      >
-        <div
-          className={`flex h-32 w-32 items-center justify-center rounded-full border-2 border-dashed transition-colors ${
-            isOver
-              ? 'border-[#8b82ff] bg-[#8b82ff]/10'
-              : 'border-white/[0.12] bg-white/[0.03]'
-          }`}
-        >
-          <svg
-            width="40"
-            height="40"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={isOver ? '#8b82ff' : '#475569'}
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </div>
-        <div>
-          <p className="text-sm font-medium text-slate-400">
-            Drag a journal entry here
-          </p>
-          <p className="mt-1 text-xs text-slate-600">
-            to generate ideas
-          </p>
-        </div>
-      </motion.div>
-    </div>
-  )
+  return <div ref={setNodeRef} className={`pointer-events-none absolute inset-0 transition ${isOver ? 'bg-[#8b82ff]/8' : ''}`} />
 }
 
 function DragOverlayCard({ entry }: { entry: JournalEntry }) {
-  return (
-    <div className="w-64 rounded-xl border border-[#8b82ff]/40 bg-[#161830] p-3 shadow-2xl shadow-[#8b82ff]/20">
-      <h4 className="text-sm font-semibold text-gray-200">{entry.entry_title}</h4>
-      <p className="mt-1 line-clamp-2 text-xs text-slate-400">{entry.cleaned_entry}</p>
-    </div>
-  )
+  return <div className="w-64 rounded-xl border border-[#8b82ff]/40 bg-[#161830] p-3 text-xs text-slate-200">{entry.entry_title}</div>
+}
+
+const defaultEngine: IdeaEngineSettings = { mode: 'creative', creativity: 0.6, nodeCount: 4, depthLimit: 2 }
+
+function makeThumbnail(tree: IdeaTree): string {
+  const points = tree.nodes.slice(0, 18).map((n) => `<circle cx="${n.x % 180}" cy="${n.y % 90}" r="2" fill="#8b82ff" />`).join('')
+  return `data:image/svg+xml;base64,${btoa(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 90'><rect width='180' height='90' fill='#090d1a'/>${points}</svg>`)}`
 }
 
 export function IdeasVaultPage() {
   const [entries, setEntries] = useState<JournalEntry[]>([])
   const [entriesLoading, setEntriesLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  const [droppedEntry, setDroppedEntry] = useState<JournalEntry | null>(null)
-  const [ideas, setIdeas] = useState<GeneratedIdea[]>([])
-  const [generating, setGenerating] = useState(false)
-  const [selectedIdea, setSelectedIdea] = useState<GeneratedIdea | null>(null)
   const [activeEntry, setActiveEntry] = useState<JournalEntry | null>(null)
+  const [savedOpen, setSavedOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [engine, setEngine] = useState(defaultEngine)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
 
   const { plan, loading: planLoading, error: planError } = useUserPlan()
+  const store = useIdeaTreeStore()
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-  )
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+  const selectedNode = store.selectedNodes[0] ?? null
+  const inspectorOpen = !!selectedNode
 
   useEffect(() => {
     async function loadEntries() {
@@ -86,21 +59,94 @@ export function IdeasVaultPage() {
         setEntriesLoading(false)
         return
       }
-      setEntriesLoading(true)
-      const { data, error: queryError } = await supabase
-        .from('journal_entries')
-        .select('*')
-        .order('recorded_at', { ascending: false })
-        .limit(200)
-      if (queryError) {
-        setError('Unable to load journal entries.')
-      } else {
-        setEntries((data as JournalEntry[]) ?? [])
-      }
+      const { data, error: queryError } = await supabase.from('journal_entries').select('*').order('recorded_at', { ascending: false }).limit(200)
+      if (queryError) setError('Unable to load journal entries.')
+      else setEntries((data as JournalEntry[]) ?? [])
       setEntriesLoading(false)
     }
     void loadEntries()
   }, [])
+
+  const handleDropEntry = useCallback((entry: JournalEntry, at?: { x: number; y: number }) => {
+    const position = at ?? { x: 420, y: 260 }
+    const root = store.currentTree.rootNodeId ? store.currentTree.nodes.find((n) => n.id === store.currentTree.rootNodeId) : null
+    if (root && !confirm('A root exists. Replace root with this entry? Click Cancel to attach as child.')) {
+      store.addNode({ label: entry.entry_title, x: root.x + 220, y: root.y + 40, parentId: root.id, sourceEntryIds: [entry.id], notes: entry.cleaned_entry, category: 'other' })
+      store.updateTree((tree) => ({ ...tree, influencedEntryIds: Array.from(new Set([...tree.influencedEntryIds, entry.id])) }), false)
+      return
+    }
+    if (root) store.deleteNodes([root.id])
+    store.addNode({ label: entry.entry_title, x: position.x, y: position.y, category: 'other', sourceEntryIds: [entry.id], notes: entry.cleaned_entry })
+    store.updateTree((tree) => ({ ...tree, title: entry.entry_title, tags: Array.from(new Set([...tree.tags, entry.mood_primary || 'journal'])), influencedEntryIds: Array.from(new Set([...tree.influencedEntryIds, entry.id])) }), false)
+  }, [store])
+
+  const generateFromSelection = useCallback(async () => {
+    const anchor = selectedNode ?? store.currentTree.nodes.find((n) => n.id === store.currentTree.rootNodeId)
+    if (!anchor) return
+    setGenerating(true)
+    try {
+      const contextEntries = entries.filter((e) => store.currentTree.influencedEntryIds.includes(e.id)).map((e) => e.cleaned_entry).join('\n')
+      const prompt = buildIdeaPrompt({ contextText: `${contextEntries}\nNodes: ${store.currentTree.nodes.map((n) => n.label).join(', ')}`, selectedLabels: store.selectedNodes.map((n) => n.label), settings: engine })
+      const ideas = await generateIdeasFromContext(prompt, engine)
+      for (const [index, idea] of ideas.entries()) {
+        await new Promise((resolve) => setTimeout(resolve, 110))
+        store.addNode({ label: idea.content, category: idea.category, notes: idea.details, parentId: anchor.id, x: anchor.x + 180 + (index % 2) * 30, y: anchor.y + (index - ideas.length / 2) * 65 })
+      }
+    } catch (err) {
+      setError(`Generation failed: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setGenerating(false)
+    }
+  }, [engine, entries, selectedNode, store])
+
+  const addChild = useCallback(() => {
+    if (!selectedNode) return
+    store.addNode({ label: 'New child', parentId: selectedNode.id, x: selectedNode.x + 180, y: selectedNode.y + 50 })
+  }, [selectedNode, store])
+
+  const addSibling = useCallback(() => {
+    if (!selectedNode) return
+    store.addNode({ label: 'New sibling', parentId: selectedNode.parentId, x: selectedNode.x + 160, y: selectedNode.y + 10 })
+  }, [selectedNode, store])
+
+  const exportJson = useCallback(() => {
+    const blob = new Blob([JSON.stringify(store.currentTree, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${store.currentTree.title.replace(/\s+/g, '-').toLowerCase() || 'idea-tree'}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [store.currentTree])
+
+  const exportPng = useCallback(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 1200
+    canvas.height = 800
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.fillStyle = '#0a0d1a'; ctx.fillRect(0, 0, 1200, 800)
+    store.currentTree.edges.forEach((e) => {
+      const s = store.currentTree.nodes.find((n) => n.id === e.source)
+      const t = store.currentTree.nodes.find((n) => n.id === e.target)
+      if (!s || !t) return
+      ctx.strokeStyle = 'rgba(148,163,184,0.5)'
+      ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(t.x, t.y); ctx.stroke()
+    })
+    store.currentTree.nodes.forEach((n) => {
+      ctx.fillStyle = 'rgba(139,130,255,0.22)'; ctx.beginPath(); ctx.arc(n.x, n.y, 18, 0, Math.PI * 2); ctx.fill()
+      ctx.fillStyle = '#f1f5f9'; ctx.font = '12px sans-serif'; ctx.fillText(n.label.slice(0, 24), n.x + 22, n.y + 4)
+    })
+    const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = 'idea-tree.png'; a.click()
+  }, [store.currentTree])
+
+  const connectSelected = useCallback(() => {
+    if (store.selectedNodes.length < 2) return
+    const centerX = store.selectedNodes.reduce((a, n) => a + n.x, 0) / store.selectedNodes.length
+    const centerY = store.selectedNodes.reduce((a, n) => a + n.y, 0) / store.selectedNodes.length
+    const relation = store.addNode({ label: 'Connection idea', x: centerX, y: centerY + 90, category: 'creative', status: 'question' })
+    store.selectedNodes.forEach((n) => store.addEdge(n.id, relation.id, 'relationship'))
+  }, [store])
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const entry = entries.find((e) => e.id === event.active.id)
@@ -111,32 +157,35 @@ export function IdeasVaultPage() {
     setActiveEntry(null)
     if (!event.over || event.over.id !== 'canvas-drop') return
     const entry = entries.find((e) => e.id === event.active.id)
-    if (entry) {
-      setDroppedEntry(entry)
-      setIdeas([])
-    }
-  }, [entries])
+    if (entry) handleDropEntry(entry)
+  }, [entries, handleDropEntry])
 
-  const handleGenerate = useCallback(async () => {
-    if (!droppedEntry) return
-    setGenerating(true)
-    setError(null)
-    try {
-      const text = droppedEntry.cleaned_entry || droppedEntry.raw_transcript || ''
-      const result = await generateIdeasForEntry(text)
-      setIdeas(result)
-    } catch (err) {
-      setError('Generation failed: ' + (err instanceof Error ? err.message : String(err)))
-    }
-    setGenerating(false)
-  }, [droppedEntry])
+  const commands = useMemo(() => [
+    { label: 'Generate ideas', action: () => void generateFromSelection() },
+    { label: 'Add child node', action: addChild },
+    { label: 'Add sibling node', action: addSibling },
+    { label: 'Connect selected', action: connectSelected },
+    { label: 'Save tree', action: () => store.saveCurrentTree(store.currentTree.title, store.currentTree.tags) },
+    { label: 'Load saved trees', action: () => setSavedOpen(true) },
+    { label: 'Export JSON', action: exportJson },
+    { label: 'Export PNG', action: exportPng },
+  ], [addChild, addSibling, connectSelected, exportJson, exportPng, generateFromSelection, store])
 
-  const handleClear = useCallback(() => {
-    setDroppedEntry(null)
-    setIdeas([])
-    setSelectedIdea(null)
-    setError(null)
-  }, [])
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setPaletteOpen(true) }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'f') { event.preventDefault(); setSearchOpen(true) }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); event.shiftKey ? store.redo() : store.undo() }
+      if (event.key === 'Delete') store.deleteNodes(store.selectedNodeIds)
+      if (event.key === 'Enter' && selectedNode) {
+        const value = prompt('Rename node', selectedNode.label)
+        if (value) store.upsertNode(selectedNode.id, { label: value })
+      }
+      if (event.key === 'Escape') { setPaletteOpen(false); setSavedOpen(false); setSearchOpen(false); setContextMenu(null) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedNode, store])
 
   if (planLoading) return <LoadingSkeleton lines={6} />
   if (planError) return <ErrorState message={planError} />
@@ -146,130 +195,86 @@ export function IdeasVaultPage() {
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <main className="neural-vault-layout -mx-4 -mt-6 md:-mx-6">
           <div className="flex h-[calc(100vh-64px)] flex-col md:flex-row">
-            {/* Left panel — Timeline entries */}
-            <div className="h-52 w-full shrink-0 md:h-full md:w-80">
-              <TimelinePanel entries={entries} loading={entriesLoading} />
-            </div>
+            <div className="h-56 w-full shrink-0 md:h-full md:w-80"><TimelinePanel entries={entries} loading={entriesLoading} /></div>
 
-            {/* Right panel — Neural canvas */}
-            <div className="relative flex flex-1 flex-col overflow-hidden bg-[#0a0d1a]">
-              {/* Header bar */}
-              <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3">
-                <div>
-                  <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400">
-                    Ideas Vault
-                  </h2>
-                  <p className="text-[11px] text-slate-600">
-                    Neural network idea generation
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {droppedEntry && !generating && ideas.length === 0 && (
-                    <motion.button
-                      className="neural-generate-btn rounded-xl px-4 py-2 text-xs font-semibold text-white"
-                      onClick={() => void handleGenerate()}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      whileHover={{ scale: 1.04 }}
-                      whileTap={{ scale: 0.96 }}
-                    >
-                      Generate Ideas
-                    </motion.button>
-                  )}
-                  {generating && (
-                    <span className="text-xs text-[#8b82ff]">
-                      Generating...
-                    </span>
-                  )}
-                  {droppedEntry && (
-                    <button
-                      className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-xs text-slate-400 transition hover:border-white/[0.15] hover:text-white"
-                      onClick={handleClear}
-                    >
-                      Clear canvas
-                    </button>
-                  )}
-                </div>
-              </div>
+            <div className="relative flex flex-1 flex-col overflow-hidden">
+              <MinimalHeader
+                generating={generating}
+                mode={engine.mode}
+                onModeChange={(mode) => setEngine((v) => ({ ...v, mode }))}
+                onGenerate={() => void generateFromSelection()}
+                onOpenSaved={() => setSavedOpen(true)}
+                onOpenSearch={() => setSearchOpen((v) => !v)}
+                onUndo={store.undo}
+                onRedo={store.redo}
+                canUndo={store.canUndo}
+                canRedo={store.canRedo}
+                onAddChild={addChild}
+                onAddSibling={addSibling}
+                onAddFree={() => store.addNode({ label: 'Free node', x: 420, y: 260 })}
+                onConnect={connectSelected}
+                onExportJson={exportJson}
+                onExportPng={exportPng}
+                onClear={store.newTree}
+              />
 
-              {error && (
-                <div className="border-b border-red-900/30 bg-red-950/30 px-5 py-2 text-xs text-red-400">
-                  {error}
+              {searchOpen && (
+                <div className="absolute left-1/2 top-14 z-20 -translate-x-1/2 rounded-lg border border-white/10 bg-[#111525] p-2">
+                  <input autoFocus className="w-64 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-100" placeholder="Search nodes…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                 </div>
               )}
 
-              {/* Canvas area */}
-              <div className="relative flex-1">
-                <AnimatePresence mode="wait">
-                  {!droppedEntry ? (
-                    <motion.div
-                      key="dropzone"
-                      className="h-full"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      <DropZone />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="canvas"
-                      className="h-full"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      <NeuralCanvas
-                        entryTitle={droppedEntry.entry_title}
-                        ideas={ideas}
-                        generating={generating}
-                        onIdeaClick={setSelectedIdea}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+              {error && <div className="border-b border-red-900/30 bg-red-950/30 px-4 py-1 text-xs text-red-400">{error}</div>}
 
-                {/* Category legend */}
-                {ideas.length > 0 && (
-                  <motion.div
-                    className="absolute bottom-4 left-4 flex flex-wrap gap-2"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.8 }}
-                  >
-                    {[
-                      { label: 'Business', color: '#7c3aed' },
-                      { label: 'Creative', color: '#3b82f6' },
-                      { label: 'Goal', color: '#22c55e' },
-                      { label: 'Action', color: '#f97316' },
-                      { label: 'Other', color: '#6b7280' },
-                    ].map((cat) => (
-                      <span
-                        key={cat.label}
-                        className="flex items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-[10px] text-slate-300 backdrop-blur"
-                      >
-                        <span
-                          className="inline-block h-2 w-2 rounded-full"
-                          style={{ backgroundColor: cat.color }}
-                        />
-                        {cat.label}
-                      </span>
-                    ))}
-                  </motion.div>
+              <div className="relative flex-1">
+                <DropTargetLayer />
+                {!store.currentTree.nodes.length ? (
+                  <div className="flex h-full items-center justify-center text-center text-sm text-slate-500">Drag an entry → Generate ideas → Save tree.</div>
+                ) : (
+                  <IdeaNetworkCanvas
+                    tree={store.currentTree}
+                    selectedNodeIds={store.selectedNodeIds}
+                    searchQuery={searchQuery}
+                    onNodeSelect={store.setNodeSelection}
+                    onNodeMove={(nodeId, x, y) => store.upsertNode(nodeId, { x, y })}
+                    onCanvasDoubleClick={(position) => store.addNode({ label: 'Free node', x: position.x, y: position.y })}
+                    onNodeDoubleClick={(node) => {
+                      const value = prompt('Edit title', node.label)
+                      if (value) store.upsertNode(node.id, { label: value })
+                    }}
+                    onNodeContextMenu={(_node, point) => setContextMenu(point)}
+                    onQuickAddChild={addChild}
+                    onQuickGenerate={() => void generateFromSelection()}
+                  />
                 )}
+
+                {contextMenu && (
+                  <div className="absolute z-30 w-40 rounded-lg border border-white/10 bg-[#111525] p-1 text-xs" style={{ left: contextMenu.x - 180, top: contextMenu.y - 70 }}>
+                    <button className="block w-full rounded px-2 py-1 text-left text-slate-300 hover:bg-white/10" onClick={() => { addChild(); setContextMenu(null) }}>Add child</button>
+                    <button className="block w-full rounded px-2 py-1 text-left text-slate-300 hover:bg-white/10" onClick={() => { void generateFromSelection(); setContextMenu(null) }}>Generate</button>
+                    <button className="block w-full rounded px-2 py-1 text-left text-slate-300 hover:bg-white/10" onClick={() => { store.deleteNodes(store.selectedNodeIds); setContextMenu(null) }}>Delete</button>
+                  </div>
+                )}
+
+                <OnboardingTooltip />
               </div>
+
+              <InspectorDrawer
+                open={inspectorOpen}
+                node={selectedNode}
+                onClose={() => store.setSelectedNodeIds([])}
+                onUpdate={(patch) => selectedNode && store.upsertNode(selectedNode.id, patch)}
+                onGenerate={() => void generateFromSelection()}
+              />
             </div>
           </div>
         </main>
 
-        {/* Drag overlay */}
-        <DragOverlay dropAnimation={null}>
-          {activeEntry ? <DragOverlayCard entry={activeEntry} /> : null}
-        </DragOverlay>
-      </DndContext>
+        <SavedTreesDrawer open={savedOpen} trees={store.library.map((tree) => ({ ...tree, thumbnail: tree.thumbnail || makeThumbnail(tree) }))} onClose={() => setSavedOpen(false)} onLoad={store.loadTree} />
+        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
 
-      {/* Idea detail side panel */}
-      <IdeaDetailPanel idea={selectedIdea} onClose={() => setSelectedIdea(null)} />
+        <DragOverlay dropAnimation={null}>{activeEntry ? <DragOverlayCard entry={activeEntry} /> : null}</DragOverlay>
+      </DndContext>
     </FeatureGate>
   )
 }
