@@ -1,16 +1,11 @@
 import { type FormEvent, useState } from 'react'
 import { ErrorState } from '../components/ErrorState'
+import { DEFAULT_SUBSCRIPTION_PLAN, PUBLIC_SUBSCRIPTION_PLANS, type SubscriptionPlanOption } from '../lib/subscriptionPlans'
 import { supabase } from '../lib/supabase'
 import { invokeEdgeFunction } from '../lib/edgeFunctions'
 
-const giftPlans = [
-  { value: 'core', label: 'Core (£7/month)' },
-  { value: 'memoir', label: 'Memoir (£12/month)' },
-  { value: 'lifetime', label: 'Lifetime (£99 one-time)' },
-]
-
 export function SubscriptionPage() {
-  const [plan, setPlan] = useState('core')
+  const [plan, setPlan] = useState<SubscriptionPlanOption['value']>(DEFAULT_SUBSCRIPTION_PLAN)
   const [code, setCode] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -20,8 +15,15 @@ export function SubscriptionPage() {
       setError('Supabase is not configured.')
       return
     }
+
+    const selectedPlan = PUBLIC_SUBSCRIPTION_PLANS.find((giftPlan) => giftPlan.value === plan)
+    if (!selectedPlan) {
+      setError('Selected plan is unavailable.')
+      return
+    }
+
     setError(null)
-    const { data, error: purchaseError } = await invokeEdgeFunction<{ url?: string }>('create-gift-checkout', { body: { plan } })
+    const { data, error: purchaseError } = await invokeEdgeFunction<{ url?: string }>('create-gift-checkout', { body: { plan: selectedPlan.checkoutPlan } })
     if (purchaseError) {
       setError(purchaseError.message)
       return
@@ -55,11 +57,11 @@ export function SubscriptionPage() {
       {error && <ErrorState message={error} />}
 
       <section className="app-card p-5">
-        <h3 className="text-lg font-semibold dark:text-gray-100">Send a thoughtful gift</h3>
+        <h3 className="text-lg font-semibold dark:text-gray-100">Choose a plan</h3>
         <p className="mt-1 text-sm text-[#6b7386] dark:text-slate-300">Choose a plan and we'll generate a private redemption code after checkout.</p>
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <select className="app-select w-auto min-w-56 rounded-2xl" value={plan} onChange={(event) => setPlan(event.target.value)}>
-            {giftPlans.map((giftPlan) => <option key={giftPlan.value} value={giftPlan.value}>{giftPlan.label}</option>)}
+          <select className="app-select w-auto min-w-56 rounded-2xl" value={plan} onChange={(event) => setPlan(event.target.value as SubscriptionPlanOption['value'])}>
+            {PUBLIC_SUBSCRIPTION_PLANS.map((giftPlan) => <option key={giftPlan.value} value={giftPlan.value}>{giftPlan.label}</option>)}
           </select>
           <button onClick={() => void purchaseGift()} className="premium-button">Purchase gift</button>
         </div>
