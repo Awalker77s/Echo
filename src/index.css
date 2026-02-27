@@ -112,3 +112,73 @@ body {
   50% { transform: scale(1.3); }
   100% { transform: scale(1); }
 }
+
+/* ─── Neural Network / Ideas Vault ─── */
+
+.neural-vault-layout {
+  background: #0a0d1a;
+}
+
+.neural-central-node {
+  box-shadow:
+    0 0 30px rgba(139, 130, 255, 0.25),
+    0 0 60px rgba(139, 130, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.neural-pulse {
+  animation: neural-node-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes neural-node-pulse {
+  0% {
+    box-shadow:
+      0 0 30px rgba(139, 130, 255, 0.25),
+      0 0 60px rgba(139, 130, 255, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 40px rgba(139, 130, 255, 0.45),
+      0 0 80px rgba(139, 130, 255, 0.2),
+      0 0 120px rgba(139, 130, 255, 0.08);
+  }
+  100% {
+    box-shadow:
+      0 0 30px rgba(139, 130, 255, 0.25),
+      0 0 60px rgba(139, 130, 255, 0.1);
+  }
+}
+
+.neural-idea-node {
+  transition: box-shadow 0.3s ease;
+}
+
+.neural-idea-node:hover {
+  box-shadow:
+    0 0 28px var(--node-glow, rgba(139, 130, 255, 0.4)),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.neural-generate-btn {
+  background: linear-gradient(135deg, #7c3aed, #8b82ff);
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
+}
+
+.neural-generate-btn:hover {
+  box-shadow: 0 12px 32px rgba(124, 58, 237, 0.5);
+}
+
+/* Scrollbar for timeline panel */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
