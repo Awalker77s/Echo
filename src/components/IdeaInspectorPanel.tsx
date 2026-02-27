@@ -18,7 +18,7 @@ export function IdeaInspectorPanel({ node, onUpdate }: IdeaInspectorPanelProps) 
       </label>
       <label className="block">
         <span className="text-slate-400">Category</span>
-        <select className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5" value={node.category} onChange={(e) => onUpdate({ category: e.target.value as IdeaTreeNode['category'] })}>
+        <select className="app-select mt-1" value={node.category} onChange={(e) => onUpdate({ category: e.target.value as IdeaTreeNode['category'] })}>
           <option value="business">Business</option>
           <option value="creative">Creative</option>
           <option value="goal">Goal</option>
@@ -28,7 +28,7 @@ export function IdeaInspectorPanel({ node, onUpdate }: IdeaInspectorPanelProps) 
       </label>
       <label className="block">
         <span className="text-slate-400">Status</span>
-        <select className="mt-1 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5" value={node.status} onChange={(e) => onUpdate({ status: e.target.value as IdeaTreeNode['status'] })}>
+        <select className="app-select mt-1" value={node.status} onChange={(e) => onUpdate({ status: e.target.value as IdeaTreeNode['status'] })}>
           <option value="idea">Idea</option>
           <option value="task">Task</option>
           <option value="question">Question</option>
