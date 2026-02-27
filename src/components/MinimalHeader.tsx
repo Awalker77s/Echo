@@ -42,7 +42,7 @@ export function MinimalHeader(props: MinimalHeaderProps) {
       <select
         value={props.mode}
         onChange={(e) => props.onModeChange(e.target.value as IdeaEngineSettings['mode'])}
-        className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-slate-300"
+        className="app-select max-w-44 py-1.5"
       >
         <option value="creative">Creative</option>
         <option value="business">Business</option>
