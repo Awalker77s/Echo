@@ -12,6 +12,7 @@ import { TimelinePanel } from '../components/TimelinePanel'
 import { useIdeaTreeStore } from '../hooks/useIdeaTreeStore'
 import { useUserPlan } from '../hooks/useUserPlan'
 import { buildIdeaPrompt, generateIdeasFromContext } from '../lib/ideaEngine'
+import { layoutGraph } from '../lib/layout'
 import { supabase } from '../lib/supabase'
 import type { IdeaEngineSettings, IdeaTree, JournalEntry } from '../types'
 
@@ -48,9 +49,8 @@ export function IdeasVaultPage() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [notesOpen, setNotesOpen] = useState(false)
   const [controlsMenuOpen, setControlsMenuOpen] = useState(false)
-  const [isCompactControls, setIsCompactControls] = useState(false)
+  const [layoutVersion, setLayoutVersion] = useState(0)
   const notesPopoverRef = useRef<HTMLDivElement>(null)
-  const controlsRowRef = useRef<HTMLDivElement>(null)
 
   const { plan, loading: planLoading, error: planError } = useUserPlan()
   const store = useIdeaTreeStore()
@@ -79,6 +79,10 @@ export function IdeasVaultPage() {
   }, [selectedNode])
 
   useEffect(() => {
+    if (!selectedNode) setControlsMenuOpen(false)
+  }, [selectedNode])
+
+  useEffect(() => {
     if (!notesOpen) return
     function handlePointerDown(event: MouseEvent) {
       if (!notesPopoverRef.current?.contains(event.target as Node)) setNotesOpen(false)
@@ -87,19 +91,20 @@ export function IdeasVaultPage() {
     return () => window.removeEventListener('mousedown', handlePointerDown)
   }, [notesOpen])
 
-  useEffect(() => {
-    const row = controlsRowRef.current
-    if (!row) return
-
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? row.clientWidth
-      setIsCompactControls(width < 1180)
-      if (width >= 1180) setControlsMenuOpen(false)
+  const relayoutTree = useCallback((rootNodeId?: string) => {
+    store.updateTree((tree) => {
+      const positions = layoutGraph(tree.nodes, tree.edges, { rootNodeId: rootNodeId ?? tree.rootNodeId })
+      if (!positions.size) return tree
+      return {
+        ...tree,
+        nodes: tree.nodes.map((node) => {
+          const next = positions.get(node.id)
+          return next ? { ...node, x: next.x, y: next.y } : node
+        }),
+      }
     })
-
-    observer.observe(row)
-    return () => observer.disconnect()
-  }, [])
+    setLayoutVersion((version) => version + 1)
+  }, [store])
 
   const handleDropEntry = useCallback((entry: JournalEntry, at?: { x: number; y: number }) => {
     const position = at ?? { x: 420, y: 260 }
@@ -126,12 +131,13 @@ export function IdeasVaultPage() {
         await new Promise((resolve) => setTimeout(resolve, 110))
         store.addNode({ label: idea.content, category: idea.category, notes: idea.details, parentId: anchor.id, x: anchor.x + 180 + (index % 2) * 30, y: anchor.y + (index - ideas.length / 2) * 65 })
       }
+      relayoutTree(anchor.id)
     } catch (err) {
       setError(`Generation failed: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
       setGenerating(false)
     }
-  }, [engine, entries, selectedNode, store])
+  }, [engine, entries, relayoutTree, selectedNode, store])
 
   const addChild = useCallback(() => {
     if (!selectedNode) return
@@ -199,11 +205,12 @@ export function IdeasVaultPage() {
     { label: 'Add child node', action: addChild },
     { label: 'Add sibling node', action: addSibling },
     { label: 'Connect selected', action: connectSelected },
+    { label: 'Re-layout graph', action: () => relayoutTree(selectedNode?.id) },
     { label: 'Save tree', action: () => store.saveCurrentTree(store.currentTree.title, store.currentTree.tags) },
     { label: 'Load saved trees', action: () => setSavedOpen(true) },
     { label: 'Export JSON', action: exportJson },
     { label: 'Export PNG', action: exportPng },
-  ], [addChild, addSibling, connectSelected, exportJson, exportPng, generateFromSelection, store])
+  ], [addChild, addSibling, connectSelected, exportJson, exportPng, generateFromSelection, relayoutTree, selectedNode?.id, store])
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -253,71 +260,40 @@ export function IdeasVaultPage() {
                   onClear={store.newTree}
                 />
 
-                <div
-                  ref={controlsRowRef}
-                  className="flex min-h-11 min-w-0 items-center gap-2 overflow-x-auto border-b border-white/10 px-4 py-2 pr-3 text-xs text-slate-300 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                >
+                <div className="flex min-h-11 min-w-0 items-center gap-2 border-b border-white/10 px-4 py-2 pr-5 text-xs text-slate-300">
                   {selectedNode ? (
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-2 whitespace-nowrap">
                       <input
-                        className="w-32 min-w-0 truncate rounded bg-white/5 px-2 py-1 text-slate-100 outline-none ring-0 placeholder:text-slate-500"
+                        className="min-w-0 max-w-56 flex-1 truncate rounded bg-white/5 px-2 py-1 text-slate-100 outline-none ring-0 placeholder:text-slate-500"
                         value={selectedNode.label}
                         onChange={(e) => store.upsertNode(selectedNode.id, { label: e.target.value })}
                         placeholder="Label"
                       />
 
-                      <select className="app-select w-28 py-1" value={selectedNode.category} onChange={(e) => store.upsertNode(selectedNode.id, { category: e.target.value as typeof categoryOptions[number] })}>
+                      <select className="app-select w-28 shrink-0 py-1" value={selectedNode.category} onChange={(e) => store.upsertNode(selectedNode.id, { category: e.target.value as typeof categoryOptions[number] })}>
                         {categoryOptions.map((value) => <option key={value} value={value}>{value}</option>)}
                       </select>
 
-                      <select className="app-select w-24 py-1" value={selectedNode.status} onChange={(e) => store.upsertNode(selectedNode.id, { status: e.target.value as typeof statusOptions[number] })}>
+                      <select className="app-select w-24 shrink-0 py-1" value={selectedNode.status} onChange={(e) => store.upsertNode(selectedNode.id, { status: e.target.value as typeof statusOptions[number] })}>
                         {statusOptions.map((value) => <option key={value} value={value}>{value}</option>)}
                       </select>
 
-                      <label className="flex items-center gap-1 text-slate-400">
-                        <span>Importance</span>
-                        <input type="range" min={1} max={5} value={selectedNode.importance} onChange={(e) => store.upsertNode(selectedNode.id, { importance: Number(e.target.value) })} className="w-20 accent-[#8b82ff]" />
-                        <span className="w-3 text-[11px] text-slate-300">{selectedNode.importance}</span>
-                      </label>
+                      <input
+                        className="min-w-0 max-w-72 flex-1 truncate rounded bg-white/5 px-2 py-1 text-slate-100 outline-none placeholder:text-slate-500"
+                        value={selectedNode.links.join(', ')}
+                        onChange={(e) => store.upsertNode(selectedNode.id, { links: e.target.value.split(',').map((link) => link.trim()).filter(Boolean) })}
+                        placeholder="Links (comma separated)"
+                      />
 
-                      {!isCompactControls && (
-                        <input
-                          className="min-w-40 max-w-72 flex-1 truncate rounded bg-white/5 px-2 py-1 text-slate-100 outline-none placeholder:text-slate-500"
-                          value={selectedNode.links.join(', ')}
-                          onChange={(e) => store.upsertNode(selectedNode.id, { links: e.target.value.split(',').map((link) => link.trim()).filter(Boolean) })}
-                          placeholder="Links (comma separated)"
-                        />
-                      )}
-
-                      {!isCompactControls && <button className="rounded px-2 py-1 hover:bg-white/10" onClick={() => setNotesOpen(true)}>Notes</button>}
-                      {!isCompactControls && <button className="rounded px-2 py-1 hover:bg-white/10" onClick={() => store.upsertNode(selectedNode.id, { pinned: !selectedNode.pinned })}>{selectedNode.pinned ? 'Unpin' : 'Pin'}</button>}
-                      {!isCompactControls && <button className="rounded px-2 py-1 hover:bg-white/10" onClick={() => store.upsertNode(selectedNode.id, { collapsed: !selectedNode.collapsed })}>{selectedNode.collapsed ? 'Expand subtree' : 'Collapse subtree'}</button>}
-                      {!isCompactControls && <button className="rounded px-2 py-1 hover:bg-white/10" onClick={() => store.duplicateNode(selectedNode.id)}>Duplicate</button>}
-                      {!isCompactControls && <button className="rounded px-2 py-1 text-red-300 hover:bg-red-500/15" onClick={() => store.deleteNodes([selectedNode.id])}>Delete</button>}
-                      {!isCompactControls && <button className="rounded bg-[#8b82ff]/20 px-2 py-1 text-[#d6d1ff] hover:bg-[#8b82ff]/30" onClick={() => void generateFromSelection()}>✨ Generate from node</button>}
-
-                      {isCompactControls && (
-                        <div className="relative ml-auto shrink-0">
-                          <button className="rounded px-2 py-1 hover:bg-white/10" onClick={() => setControlsMenuOpen((open) => !open)} aria-label="More node actions">More ▾</button>
-                          {controlsMenuOpen && (
-                            <div className="absolute right-0 top-8 z-30 w-52 rounded-lg border border-white/10 bg-[#111525] p-1 text-xs shadow-xl">
-                              <button className="block w-full rounded px-2 py-1 text-left hover:bg-white/10" onClick={() => { setNotesOpen(true); setControlsMenuOpen(false) }}>Notes</button>
-                              <div className="px-2 py-1 text-[11px] text-slate-400">Links</div>
-                              <input
-                                className="mx-2 mb-2 block min-w-40 max-w-72 rounded bg-white/5 px-2 py-1 text-slate-100 outline-none placeholder:text-slate-500"
-                                value={selectedNode.links.join(', ')}
-                                onChange={(e) => store.upsertNode(selectedNode.id, { links: e.target.value.split(',').map((link) => link.trim()).filter(Boolean) })}
-                                placeholder="comma separated"
-                              />
-                              <button className="block w-full rounded px-2 py-1 text-left hover:bg-white/10" onClick={() => { store.upsertNode(selectedNode.id, { pinned: !selectedNode.pinned }); setControlsMenuOpen(false) }}>{selectedNode.pinned ? 'Unpin' : 'Pin'}</button>
-                              <button className="block w-full rounded px-2 py-1 text-left hover:bg-white/10" onClick={() => { store.upsertNode(selectedNode.id, { collapsed: !selectedNode.collapsed }); setControlsMenuOpen(false) }}>{selectedNode.collapsed ? 'Expand subtree' : 'Collapse subtree'}</button>
-                              <button className="block w-full rounded px-2 py-1 text-left hover:bg-white/10" onClick={() => { store.duplicateNode(selectedNode.id); setControlsMenuOpen(false) }}>Duplicate</button>
-                              <button className="block w-full rounded px-2 py-1 text-left text-red-300 hover:bg-red-500/15" onClick={() => { store.deleteNodes([selectedNode.id]); setControlsMenuOpen(false) }}>Delete</button>
-                              <button className="mt-1 block w-full rounded bg-[#8b82ff]/20 px-2 py-1 text-left text-[#d6d1ff] hover:bg-[#8b82ff]/30" onClick={() => { void generateFromSelection(); setControlsMenuOpen(false) }}>✨ Generate from node</button>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      <button className="shrink-0 rounded px-2 py-1 hover:bg-white/10" onClick={() => setNotesOpen(true)}>Notes</button>
+                      <div className="relative shrink-0">
+                        <button className="rounded px-2 py-1 hover:bg-white/10" onClick={() => setControlsMenuOpen((open) => !open)}>More ▾</button>
+                        {controlsMenuOpen && (
+                          <div className="absolute right-0 top-8 z-30 w-40 rounded-lg border border-white/10 bg-[#111525] p-1 text-xs shadow-xl">
+                            <button className="block w-full rounded px-2 py-1 text-left text-slate-300 hover:bg-white/10" onClick={() => { relayoutTree(selectedNode.id); setControlsMenuOpen(false) }}>Re-layout</button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : hasMultipleSelected ? (
                     <>
@@ -357,6 +333,7 @@ export function IdeasVaultPage() {
                       onNodeContextMenu={(_node, point) => setContextMenu(point)}
                       onQuickAddChild={addChild}
                       onQuickGenerate={() => void generateFromSelection()}
+                      layoutVersion={layoutVersion}
                     />
                   )}
 
@@ -384,6 +361,11 @@ export function IdeasVaultPage() {
                           className="h-36 w-full resize-none rounded-lg border border-white/10 bg-white/5 p-2 text-xs text-slate-100 outline-none"
                           placeholder="Add notes / description"
                         />
+                        <label className="mt-3 flex items-center gap-2 text-xs text-slate-300">
+                          <span>Importance</span>
+                          <input type="range" min={1} max={5} value={selectedNode.importance} onChange={(e) => store.upsertNode(selectedNode.id, { importance: Number(e.target.value) })} className="w-28 accent-[#8b82ff]" />
+                          <span className="w-3 text-[11px] text-slate-300">{selectedNode.importance}</span>
+                        </label>
                         <div className="mt-3 flex justify-end">
                           <button className="rounded bg-[#8b82ff]/20 px-3 py-1 text-xs text-[#d6d1ff] hover:bg-[#8b82ff]/30" onClick={() => setNotesOpen(false)}>Save</button>
                         </div>

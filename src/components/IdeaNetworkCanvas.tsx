@@ -39,7 +39,9 @@ export function IdeaNetworkCanvas({
   const [panning, setPanning] = useState(false)
   const [spacePressed, setSpacePressed] = useState(false)
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null)
+  const [pendingDragNodeId, setPendingDragNodeId] = useState<string | null>(null)
   const pointerStart = useRef({ x: 0, y: 0, viewportX: 0, viewportY: 0, nodeX: 0, nodeY: 0 })
+  const nodeDragDistance = 6
 
   useEffect(() => {
     function down(e: KeyboardEvent) { if (e.code === 'Space') setSpacePressed(true) }
@@ -100,6 +102,11 @@ export function IdeaNetworkCanvas({
         pointerStart.current = { x: e.clientX, y: e.clientY, viewportX: viewport.x, viewportY: viewport.y, nodeX: 0, nodeY: 0 }
       }}
       onMouseMove={(e) => {
+        if (pendingDragNodeId && !draggingNodeId) {
+          const distance = Math.hypot(e.clientX - pointerStart.current.x, e.clientY - pointerStart.current.y)
+          if (distance >= nodeDragDistance) setDraggingNodeId(pendingDragNodeId)
+        }
+
         if (draggingNodeId) {
           onNodeMove(
             draggingNodeId,
@@ -111,8 +118,8 @@ export function IdeaNetworkCanvas({
         if (!panning) return
         setViewport((v) => ({ ...v, x: pointerStart.current.viewportX + (e.clientX - pointerStart.current.x), y: pointerStart.current.viewportY + (e.clientY - pointerStart.current.y) }))
       }}
-      onMouseUp={() => { setPanning(false); setDraggingNodeId(null) }}
-      onMouseLeave={() => { setPanning(false); setDraggingNodeId(null) }}
+      onMouseUp={() => { setPanning(false); setDraggingNodeId(null); setPendingDragNodeId(null) }}
+      onMouseLeave={() => { setPanning(false); setDraggingNodeId(null); setPendingDragNodeId(null) }}
       onWheel={(e) => {
         e.preventDefault()
         if (e.ctrlKey) {
@@ -122,7 +129,10 @@ export function IdeaNetworkCanvas({
         }
         setViewport((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }))
       }}
-      onDoubleClick={(e) => onCanvasDoubleClick(toCanvas(e.clientX, e.clientY))}
+      onDoubleClick={(e) => {
+        if ((e.target as HTMLElement).closest('[data-node]')) return
+        onCanvasDoubleClick(toCanvas(e.clientX, e.clientY))
+      }}
     >
       <svg className="absolute inset-0 h-full w-full opacity-[0.05]"><defs><pattern id="idea-grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="1" /></pattern></defs><rect width="100%" height="100%" fill="url(#idea-grid)" /></svg>
 
@@ -151,10 +161,14 @@ export function IdeaNetworkCanvas({
               e.stopPropagation()
               onNodeSelect(node.id, e.shiftKey || e.metaKey || e.ctrlKey)
               if (spacePressed) return
-              setDraggingNodeId(node.id)
+              setPendingDragNodeId(node.id)
               pointerStart.current = { x: e.clientX, y: e.clientY, viewportX: viewport.x, viewportY: viewport.y, nodeX: node.x, nodeY: node.y }
             }}
-            onDoubleClick={() => onNodeDoubleClick(node)}
+            onDoubleClick={(e) => {
+              e.stopPropagation()
+              e.preventDefault()
+              onNodeDoubleClick(node)
+            }}
             onContextMenu={(e) => {
               e.preventDefault()
               onNodeSelect(node.id, false)
@@ -179,7 +193,7 @@ function NodeCard({ node, selected, highlighted, onPointerDown, onDoubleClick, o
   selected: boolean
   highlighted: boolean
   onPointerDown: (e: React.MouseEvent<HTMLDivElement>) => void
-  onDoubleClick: () => void
+  onDoubleClick: (e: React.MouseEvent<HTMLDivElement>) => void
   onContextMenu: (e: React.MouseEvent<HTMLDivElement>) => void
 }) {
   return (
