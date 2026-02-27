@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DndContext, DragOverlay, PointerSensor, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
 import { CommandPalette } from '../components/CommandPalette'
 import { ErrorState } from '../components/ErrorState'
 import { FeatureGate } from '../components/FeatureGate'
-import { IdeaInspectorPanel } from '../components/IdeaInspectorPanel'
 import { IdeaNetworkCanvas } from '../components/IdeaNetworkCanvas'
 import { LoadingSkeleton } from '../components/LoadingSkeleton'
 import { MinimalHeader } from '../components/MinimalHeader'
@@ -15,6 +14,9 @@ import { useUserPlan } from '../hooks/useUserPlan'
 import { buildIdeaPrompt, generateIdeasFromContext } from '../lib/ideaEngine'
 import { supabase } from '../lib/supabase'
 import type { IdeaEngineSettings, IdeaTree, JournalEntry } from '../types'
+
+const categoryOptions = ['business', 'creative', 'goal', 'action', 'other'] as const
+const statusOptions = ['idea', 'task', 'question'] as const
 
 function DropTargetLayer() {
   const { setNodeRef, isOver } = useDroppable({ id: 'canvas-drop' })
@@ -44,14 +46,15 @@ export function IdeasVaultPage() {
   const [generating, setGenerating] = useState(false)
   const [engine, setEngine] = useState(defaultEngine)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
-  const [inspectorCollapsed, setInspectorCollapsed] = useState(false)
+  const [notesOpen, setNotesOpen] = useState(false)
+  const notesPopoverRef = useRef<HTMLDivElement>(null)
 
   const { plan, loading: planLoading, error: planError } = useUserPlan()
   const store = useIdeaTreeStore()
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
-  const selectedNode = store.selectedNodes[0] ?? null
-  const inspectorOpen = !!selectedNode && !inspectorCollapsed
+  const selectedNode = store.selectedNodes.length === 1 ? store.selectedNodes[0] : null
+  const hasMultipleSelected = store.selectedNodes.length > 1
 
   useEffect(() => {
     async function loadEntries() {
@@ -69,12 +72,17 @@ export function IdeasVaultPage() {
   }, [])
 
   useEffect(() => {
-    if (selectedNode) setInspectorCollapsed(false)
+    if (!selectedNode) setNotesOpen(false)
   }, [selectedNode])
 
   useEffect(() => {
-    window.dispatchEvent(new Event('resize'))
-  }, [inspectorOpen])
+    if (!notesOpen) return
+    function handlePointerDown(event: MouseEvent) {
+      if (!notesPopoverRef.current?.contains(event.target as Node)) setNotesOpen(false)
+    }
+    window.addEventListener('mousedown', handlePointerDown)
+    return () => window.removeEventListener('mousedown', handlePointerDown)
+  }, [notesOpen])
 
   const handleDropEntry = useCallback((entry: JournalEntry, at?: { x: number; y: number }) => {
     const position = at ?? { x: 420, y: 260 }
@@ -190,7 +198,7 @@ export function IdeasVaultPage() {
         const value = prompt('Rename node', selectedNode.label)
         if (value) store.upsertNode(selectedNode.id, { label: value })
       }
-      if (event.key === 'Escape') { setPaletteOpen(false); setSavedOpen(false); setSearchOpen(false); setContextMenu(null); setInspectorCollapsed(true) }
+      if (event.key === 'Escape') { setPaletteOpen(false); setSavedOpen(false); setSearchOpen(false); setContextMenu(null); setNotesOpen(false) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -228,6 +236,55 @@ export function IdeasVaultPage() {
                   onClear={store.newTree}
                 />
 
+                <div className="flex min-h-11 items-center gap-2 border-b border-white/10 px-4 py-2 text-xs text-slate-300">
+                  {selectedNode ? (
+                    <>
+                      <input
+                        className="w-36 rounded bg-white/5 px-2 py-1 text-slate-100 outline-none ring-0 placeholder:text-slate-500"
+                        value={selectedNode.label}
+                        onChange={(e) => store.upsertNode(selectedNode.id, { label: e.target.value })}
+                        placeholder="Label"
+                      />
+
+                      <select className="app-select w-28 py-1" value={selectedNode.category} onChange={(e) => store.upsertNode(selectedNode.id, { category: e.target.value as typeof categoryOptions[number] })}>
+                        {categoryOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                      </select>
+
+                      <select className="app-select w-24 py-1" value={selectedNode.status} onChange={(e) => store.upsertNode(selectedNode.id, { status: e.target.value as typeof statusOptions[number] })}>
+                        {statusOptions.map((value) => <option key={value} value={value}>{value}</option>)}
+                      </select>
+
+                      <label className="flex items-center gap-1 text-slate-400">
+                        <span>Importance</span>
+                        <input type="range" min={1} max={5} value={selectedNode.importance} onChange={(e) => store.upsertNode(selectedNode.id, { importance: Number(e.target.value) })} className="w-20 accent-[#8b82ff]" />
+                        <span className="w-3 text-[11px] text-slate-300">{selectedNode.importance}</span>
+                      </label>
+
+                      <input
+                        className="min-w-32 flex-1 rounded bg-white/5 px-2 py-1 text-slate-100 outline-none placeholder:text-slate-500"
+                        value={selectedNode.links.join(', ')}
+                        onChange={(e) => store.upsertNode(selectedNode.id, { links: e.target.value.split(',').map((link) => link.trim()).filter(Boolean) })}
+                        placeholder="Links (comma separated)"
+                      />
+
+                      <button className="rounded px-2 py-1 hover:bg-white/10" onClick={() => setNotesOpen(true)}>Notes</button>
+                      <button className="rounded px-2 py-1 hover:bg-white/10" onClick={() => store.upsertNode(selectedNode.id, { pinned: !selectedNode.pinned })}>{selectedNode.pinned ? 'Unpin' : 'Pin'}</button>
+                      <button className="rounded px-2 py-1 hover:bg-white/10" onClick={() => store.upsertNode(selectedNode.id, { collapsed: !selectedNode.collapsed })}>{selectedNode.collapsed ? 'Expand subtree' : 'Collapse subtree'}</button>
+                      <button className="rounded px-2 py-1 hover:bg-white/10" onClick={() => store.duplicateNode(selectedNode.id)}>Duplicate</button>
+                      <button className="rounded px-2 py-1 text-red-300 hover:bg-red-500/15" onClick={() => store.deleteNodes([selectedNode.id])}>Delete</button>
+                      <button className="rounded bg-[#8b82ff]/20 px-2 py-1 text-[#d6d1ff] hover:bg-[#8b82ff]/30" onClick={() => void generateFromSelection()}>✨ Generate from node</button>
+                    </>
+                  ) : hasMultipleSelected ? (
+                    <>
+                      <span className="text-slate-400">Multiple selected</span>
+                      <button className="rounded px-2 py-1 hover:bg-white/10" onClick={connectSelected}>Connect selected</button>
+                      <button className="rounded px-2 py-1 text-red-300 hover:bg-red-500/15" onClick={() => store.deleteNodes(store.selectedNodeIds)}>Delete selected</button>
+                    </>
+                  ) : (
+                    <span className="text-slate-500">Select a node to edit details</span>
+                  )}
+                </div>
+
                 {searchOpen && (
                   <div className="absolute left-1/2 top-14 z-20 -translate-x-1/2 rounded-lg border border-white/10 bg-[#111525] p-2">
                     <input autoFocus className="w-64 rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-100" placeholder="Search nodes…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
@@ -245,13 +302,12 @@ export function IdeasVaultPage() {
                       tree={store.currentTree}
                       selectedNodeIds={store.selectedNodeIds}
                       searchQuery={searchQuery}
-                      layoutVersion={inspectorOpen ? 1 : 0}
                       onNodeSelect={store.setNodeSelection}
                       onNodeMove={(nodeId, x, y) => store.upsertNode(nodeId, { x, y })}
                       onCanvasDoubleClick={(position) => store.addNode({ label: 'Free node', x: position.x, y: position.y })}
                       onNodeDoubleClick={(node) => {
-                        const value = prompt('Edit title', node.label)
-                        if (value) store.upsertNode(node.id, { label: value })
+                        store.setNodeSelection(node.id, false)
+                        setNotesOpen(true)
                       }}
                       onNodeContextMenu={(_node, point) => setContextMenu(point)}
                       onQuickAddChild={addChild}
@@ -268,31 +324,29 @@ export function IdeasVaultPage() {
                   )}
 
                   <OnboardingTooltip />
-                </div>
-              </section>
 
-              <aside className={`h-full shrink-0 border-l border-white/10 bg-[#0d1120]/95 backdrop-blur transition-all duration-200 ${inspectorOpen ? 'w-80' : 'w-10'}`}>
-                <div className="flex h-full flex-col">
-                  <button
-                    className="m-2 rounded bg-white/10 px-2 py-1 text-[11px] text-slate-300"
-                    onClick={() => setInspectorCollapsed((prev) => !prev)}
-                    title={inspectorOpen ? 'Collapse inspector' : 'Expand inspector'}
-                  >
-                    {inspectorOpen ? '⟩' : '⟨'}
-                  </button>
-
-                  {inspectorOpen && (
-                    <div className="flex-1 overflow-y-auto px-3 pb-3">
-                      {selectedNode && (
-                        <button className="mb-3 w-full rounded-lg bg-[#8b82ff]/20 px-2 py-1.5 text-xs text-[#d6d1ff]" onClick={() => void generateFromSelection()}>
-                          ✨ Generate from this node
-                        </button>
-                      )}
-                      <IdeaInspectorPanel node={selectedNode} onUpdate={(patch) => selectedNode && store.upsertNode(selectedNode.id, patch)} />
+                  {notesOpen && selectedNode && (
+                    <div className="absolute inset-x-0 top-20 z-30 flex justify-center px-4">
+                      <div ref={notesPopoverRef} className="w-full max-w-md rounded-xl border border-white/10 bg-[#111525]/95 p-4 shadow-2xl">
+                        <div className="mb-2 flex items-center justify-between">
+                          <h3 className="text-sm font-medium text-slate-100">{selectedNode.label}</h3>
+                          <button className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-white/10" onClick={() => setNotesOpen(false)}>Close</button>
+                        </div>
+                        <textarea
+                          autoFocus
+                          value={selectedNode.notes}
+                          onChange={(e) => store.upsertNode(selectedNode.id, { notes: e.target.value })}
+                          className="h-36 w-full resize-none rounded-lg border border-white/10 bg-white/5 p-2 text-xs text-slate-100 outline-none"
+                          placeholder="Add notes / description"
+                        />
+                        <div className="mt-3 flex justify-end">
+                          <button className="rounded bg-[#8b82ff]/20 px-3 py-1 text-xs text-[#d6d1ff] hover:bg-[#8b82ff]/30" onClick={() => setNotesOpen(false)}>Save</button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
-              </aside>
+              </section>
             </div>
           </div>
         </main>
