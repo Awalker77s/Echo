@@ -60,7 +60,7 @@ export function MoodDashboardPage() {
       const since = new Date(Date.now() - range.days * 24 * 60 * 60 * 1000).toISOString()
       const { data, error: queryError } = await supabase
         .from('mood_history')
-        .select('id,recorded_at,mood_score,mood_primary')
+        .select('id,recorded_at,mood_score,mood_primary,mood_level')
         .gte('recorded_at', since)
         .order('recorded_at', { ascending: true })
       if (queryError) {
@@ -90,7 +90,9 @@ export function MoodDashboardPage() {
         groups[dayKey] = { date: dayKey, level, score: Number(point.mood_score ?? 0), primary: point.mood_primary, count: 1 }
       } else {
         groups[dayKey].count += 1
-        groups[dayKey].score = (groups[dayKey].score + Number(point.mood_score ?? 0)) / 2
+        // Use the most negative score for the day so a single negative entry
+        // is never averaged away into neutral by a positive entry on the same day.
+        groups[dayKey].score = Math.min(groups[dayKey].score, Number(point.mood_score ?? 0))
         groups[dayKey].level = scoreMoodLevel(groups[dayKey].score)
         groups[dayKey].primary = point.mood_primary
       }
