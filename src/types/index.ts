@@ -12,6 +12,7 @@ export interface JournalEntry {
   mood_score: number
   mood_tags: string[]
   mood_level?: MoodLevel
+  mood_reasoning?: string
   themes: string[]
   duration_seconds: number
   recorded_at: string
