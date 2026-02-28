@@ -103,7 +103,7 @@ serve(async (req) => {
     console.log('[process-recording] Calling OpenAI journal/mood/idea prompts')
     const moodSystemPrompt = `You are a mood classification engine for a personal journal app. Your job is to detect emotional distress accurately — never underreport negativity.
 
-Analyze the journal entry and return a JSON object with these fields:
+Respond ONLY with a valid JSON object with these exact fields (no markdown code fences, no preamble, no explanation text — raw JSON only):
 - mood_primary: a single descriptive word capturing the dominant emotion (e.g. "anxious", "drained", "content", "joyful")
 - mood_score: a float from -1.0 (most negative) to +1.0 (most positive)
 - mood_tags: array of 2-4 mood descriptor words
@@ -160,29 +160,54 @@ Return ONLY a valid JSON object in this format with no markdown fences:
     console.log('[process-recording] OpenAI responses received', {
       journalTextLength: journalText.length,
       moodTextLength: moodText.length,
+      moodTextPreview: moodText.slice(0, 300),
       ideasTextLength: ideasText.length,
       insightsTextLength: insightsText.length,
       ideasTextPreview: ideasText.slice(0, 300),
     })
-    // Log the full raw ideas response so we can inspect exactly what OpenAI returned
+    // Log the full raw mood/ideas/insights responses so we can inspect exactly what OpenAI returned
+    console.log('[process-recording] Raw moodText from OpenAI:', moodText)
     console.log('[process-recording] Raw ideas response from OpenAI:', ideasText)
     console.log('[process-recording] Raw insights response from OpenAI:', insightsText)
 
-    const safeParse = <T>(text: string, fallback: T): T => {
+    const safeParse = <T>(text: string, fallback: T, label?: string): T => {
+      // Strip markdown code fences first
+      const cleanedText = text
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/```\s*$/i, '')
+        .trim()
+
+      // Attempt 1: parse the cleaned text directly (the happy path)
       try {
-        const cleanedText = text
-          .replace(/^```json\s*/i, '')
-          .replace(/^```\s*/i, '')
-          .replace(/```\s*$/i, '')
-          .trim()
         return JSON.parse(cleanedText) as T
       } catch {
+        // Attempt 2: the model may have wrapped the JSON in prose despite being
+        // told not to.  Extract the first {...} block and try again.
+        const jsonMatch = cleanedText.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          try {
+            const extracted = JSON.parse(jsonMatch[0]) as T
+            if (label) console.warn(`[process-recording] safeParse(${label}): used JSON-extraction fallback — model returned prose around JSON`)
+            return extracted
+          } catch {
+            // fall through
+          }
+        }
+        if (label) console.error(`[process-recording] safeParse(${label}): JSON parse failed entirely, using hardcoded fallback. Raw text (first 300): ${text.slice(0, 300)}`)
         return fallback
       }
     }
 
-    const journalJson = safeParse<ParsedJournal>(journalText, { title: 'Untitled Entry', entry: transcript })
-    const moodJson = safeParse<ParsedMood>(moodText, { mood_primary: 'reflective', mood_score: 0, mood_tags: ['reflective'], mood_level: 'Neutral' })
+    const journalJson = safeParse<ParsedJournal>(journalText, { title: 'Untitled Entry', entry: transcript }, 'journal')
+    const moodJson = safeParse<ParsedMood>(moodText, { mood_primary: 'reflective', mood_score: 0, mood_tags: ['reflective'], mood_level: 'Neutral' }, 'mood')
+    console.log('[process-recording] Mood parse result', {
+      mood_primary: moodJson.mood_primary,
+      mood_score: moodJson.mood_score,
+      mood_level: moodJson.mood_level,
+      mood_reasoning: moodJson.mood_reasoning ?? '(none)',
+      usedFallback: moodJson.mood_primary === 'reflective' && moodJson.mood_score === 0,
+    })
 
     // Parse ideas with explicit error logging — strip markdown code fences in case OpenAI wraps the JSON
     let ideasJson: ParsedIdeas = { ideas: [] }
