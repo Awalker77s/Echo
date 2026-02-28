@@ -22,10 +22,10 @@ const moodLevels: { level: MoodLevel; color: string; bg: string; border: string;
 ]
 
 function scoreMoodLevel(score: number): MoodLevel {
-  if (score >= 0.6) return 'Extremely Positive'
-  if (score >= 0.2) return 'Positive'
-  if (score >= -0.2) return 'Neutral'
-  if (score >= -0.6) return 'Negative'
+  if (score >= 0.7) return 'Extremely Positive'
+  if (score >= 0.1) return 'Positive'
+  if (score >= -0.1) return 'Neutral'
+  if (score >= -0.7) return 'Negative'
   return 'Extremely Negative'
 }
 
@@ -152,11 +152,11 @@ export function MoodDashboardPage() {
                       <stop offset="95%" stopColor="#7f78d4" stopOpacity={0.03} />
                     </linearGradient>
                   </defs>
-                  <ReferenceArea y1={0.6} y2={1} fill={isDark ? '#064e3b' : '#d1f5de'} fillOpacity={0.5} />
-                  <ReferenceArea y1={0.2} y2={0.6} fill={isDark ? '#14532d' : '#e4f5ea'} fillOpacity={0.5} />
-                  <ReferenceArea y1={-0.2} y2={0.2} fill={isDark ? '#451a03' : '#f5f0d1'} fillOpacity={0.5} />
-                  <ReferenceArea y1={-0.6} y2={-0.2} fill={isDark ? '#450a0a' : '#f5e0d8'} fillOpacity={0.5} />
-                  <ReferenceArea y1={-1} y2={-0.6} fill={isDark ? '#3b0000' : '#f5d1d1'} fillOpacity={0.5} />
+                  <ReferenceArea y1={0.7} y2={1} fill={isDark ? '#064e3b' : '#d1f5de'} fillOpacity={0.5} />
+                  <ReferenceArea y1={0.1} y2={0.7} fill={isDark ? '#14532d' : '#e4f5ea'} fillOpacity={0.5} />
+                  <ReferenceArea y1={-0.1} y2={0.1} fill={isDark ? '#451a03' : '#f5f0d1'} fillOpacity={0.5} />
+                  <ReferenceArea y1={-0.7} y2={-0.1} fill={isDark ? '#450a0a' : '#f5e0d8'} fillOpacity={0.5} />
+                  <ReferenceArea y1={-1} y2={-0.7} fill={isDark ? '#3b0000' : '#f5d1d1'} fillOpacity={0.5} />
                   <CartesianGrid stroke={isDark ? '#334155' : '#e5ddd4'} strokeDasharray="3 3" />
                   <XAxis dataKey="day" tick={{ fill: isDark ? '#94a3b8' : '#7a7188', fontSize: 11 }} minTickGap={24} />
                   <YAxis domain={[-1, 1]} tick={{ fill: isDark ? '#94a3b8' : '#7a7188', fontSize: 11 }} />

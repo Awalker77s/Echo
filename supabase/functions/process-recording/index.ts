@@ -4,7 +4,7 @@ import { callOpenAIResponses, callWhisperTranscription } from '../_shared/openai
 import { corsHeaders } from '../_shared/cors.ts'
 
 interface ParsedJournal { title: string; entry: string }
-interface ParsedMood { mood_primary: string; mood_score: number; mood_tags: string[]; mood_level: string }
+interface ParsedMood { mood_primary: string; mood_score: number; mood_tags: string[]; mood_level: string; mood_reasoning?: string }
 interface ParsedIdeas { ideas: Array<{ content: string; category: string; idea_type: string; details: string }> }
 interface ParsedInsights { insights: Array<{ content: string; insight_type: string }> }
 
@@ -101,18 +101,30 @@ serve(async (req) => {
       transcriptPreview: transcript.slice(0, 120),
     })
     console.log('[process-recording] Calling OpenAI journal/mood/idea prompts')
-    const moodSystemPrompt = `Analyze the mood of this journal entry by examining the key words and overall tone. Return JSON with:
-- mood_primary: a single descriptive word (e.g. "joyful", "anxious", "reflective")
-- mood_score: a float from -1 (most negative) to 1 (most positive)
-- mood_tags: array of 2-4 mood descriptor words
-- mood_level: classify into exactly one of these five levels based on keyword analysis: "Extremely Positive", "Positive", "Neutral", "Negative", or "Extremely Negative"
+    const moodSystemPrompt = `You are a mood classification engine for a personal journal app. Your job is to detect emotional distress accurately — never underreport negativity.
 
-Classification guide:
-- "Extremely Positive": Words like amazing, fantastic, thrilled, ecstatic, grateful, blessed, wonderful, incredible, love, celebrate
-- "Positive": Words like good, happy, pleased, hopeful, excited, proud, enjoyed, nice, better, optimistic
-- "Neutral": Words like okay, fine, normal, routine, usual, standard, balanced, steady, regular
-- "Negative": Words like sad, worried, frustrated, tired, stressed, anxious, disappointed, difficult, struggling
-- "Extremely Negative": Words like devastated, hopeless, terrible, awful, miserable, depressed, overwhelmed, broken, desperate`
+Analyze the journal entry and return a JSON object with these fields:
+- mood_primary: a single descriptive word capturing the dominant emotion (e.g. "anxious", "drained", "content", "joyful")
+- mood_score: a float from -1.0 (most negative) to +1.0 (most positive)
+- mood_tags: array of 2-4 mood descriptor words
+- mood_level: classify into exactly one of: "Extremely Positive", "Positive", "Neutral", "Negative", "Extremely Negative"
+- mood_reasoning: a single sentence explaining why you chose this classification (used for debugging)
+
+CRITICAL CLASSIFICATION RULES:
+1. If the entry contains ANY significant negative emotional language — even alongside positive content — classify as "Negative" or "Extremely Negative". Do NOT average away the negativity.
+2. "Neutral" means genuinely balanced or emotionally uneventful (routine, nothing notable happened). It is a NARROW band. Reserve it only for entries with no meaningful positive or negative emotion.
+3. Negation flips meaning: "not great", "wasn't happy", "can't seem to", "don't feel good", "never feels right" all count as NEGATIVE signals.
+4. Soft negativity IS negativity. These words signal a negative entry: drained, unmotivated, off, exhausted, heavy, numb, uneasy, irritable, tense, overwhelmed, blah, stuck, disconnected, restless, foggy, hollow, burned out, can't focus, on edge.
+5. Mixed entries: If the afternoon was stressful after a good morning, the stress is the dominant signal — classify as "Negative", not "Neutral".
+
+Score guidance:
+- +0.7 to +1.0 → "Extremely Positive" (elated, overjoyed, deeply grateful)
+- +0.1 to +0.7 → "Positive" (content, hopeful, pleased, proud)
+- -0.1 to +0.1 → "Neutral" (routine, unremarkable, balanced — no emotional peaks)
+- -0.7 to -0.1 → "Negative" (stressed, anxious, sad, frustrated, drained, overwhelmed)
+- -1.0 to -0.7 → "Extremely Negative" (devastated, hopeless, miserable, in crisis)
+
+Negative language includes (but is not limited to): sad, worried, frustrated, tired, stressed, anxious, disappointed, difficult, struggling, drained, unmotivated, exhausted, overwhelmed, upset, angry, irritable, hopeless, hollow, numb, heavy, tense, uneasy, off, blah, stuck, restless, foggy, burned out, hate, nothing feels right, can't, don't, not good, wasn't happy, never feels, on edge, falling apart.`
 
     const ideasSystemPrompt = `You are an idea extraction assistant. Analyze the journal entry and extract any business ideas, creative ideas, goals, or action items. Respond ONLY with a valid JSON object in this exact format, no markdown code fences, no other text:
 {
@@ -201,6 +213,8 @@ Return ONLY a valid JSON object in this format with no markdown fences:
       journalTitle: journalJson.title,
       moodPrimary: moodJson.mood_primary,
       moodScore: moodJson.mood_score,
+      moodLevel: moodJson.mood_level,
+      moodReasoning: moodJson.mood_reasoning ?? '(none)',
       ideasCount: ideasJson.ideas.length,
       ideasPreview: ideasJson.ideas.slice(0, 2).map((i) => i.content),
       insightsCount: insightsJson.insights.length,
@@ -210,10 +224,10 @@ Return ONLY a valid JSON object in this format with no markdown fences:
     // Ensure mood_level is always populated — derive from mood_score if the AI omitted it
     if (!moodJson.mood_level) {
       const s = moodJson.mood_score
-      if (s >= 0.6) moodJson.mood_level = 'Extremely Positive'
-      else if (s >= 0.2) moodJson.mood_level = 'Positive'
-      else if (s >= -0.2) moodJson.mood_level = 'Neutral'
-      else if (s >= -0.6) moodJson.mood_level = 'Negative'
+      if (s >= 0.7) moodJson.mood_level = 'Extremely Positive'
+      else if (s >= 0.1) moodJson.mood_level = 'Positive'
+      else if (s >= -0.1) moodJson.mood_level = 'Neutral'
+      else if (s >= -0.7) moodJson.mood_level = 'Negative'
       else moodJson.mood_level = 'Extremely Negative'
     }
 
@@ -234,6 +248,7 @@ Return ONLY a valid JSON object in this format with no markdown fences:
         mood_score: moodJson.mood_score,
         mood_tags: moodJson.mood_tags,
         mood_level: moodJson.mood_level,
+        mood_reasoning: moodJson.mood_reasoning ?? null,
         themes: [],
         recorded_at: recordedAt,
         word_count: journalJson.entry.split(/\s+/).length,
@@ -254,6 +269,7 @@ Return ONLY a valid JSON object in this format with no markdown fences:
       mood_score: moodJson.mood_score,
       mood_tags: moodJson.mood_tags,
       mood_level: moodJson.mood_level,
+      mood_reasoning: moodJson.mood_reasoning ?? null,
       recorded_at: recordedAt,
     })
     if (moodError) {
