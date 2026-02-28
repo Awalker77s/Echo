@@ -119,10 +119,12 @@ CRITICAL CLASSIFICATION RULES:
 
 Score guidance:
 - +0.7 to +1.0 → "Extremely Positive" (elated, overjoyed, deeply grateful)
-- +0.1 to +0.7 → "Positive" (content, hopeful, pleased, proud)
-- -0.1 to +0.1 → "Neutral" (routine, unremarkable, balanced — no emotional peaks)
-- -0.7 to -0.1 → "Negative" (stressed, anxious, sad, frustrated, drained, overwhelmed)
+- +0.05 to +0.7 → "Positive" (content, hopeful, pleased, proud)
+- -0.05 to +0.05 → "Neutral" (routine, unremarkable, balanced — no emotional peaks whatsoever)
+- -0.7 to -0.05 → "Negative" (stressed, anxious, sad, frustrated, drained, overwhelmed)
 - -1.0 to -0.7 → "Extremely Negative" (devastated, hopeless, miserable, in crisis)
+
+IMPORTANT: The Neutral band is intentionally very narrow (±0.05). Any detectable negative emotion — even mild words like "a bit drained" or "slightly anxious" — must score below -0.05 and be classified as "Negative". When in doubt between Neutral and Negative, always choose Negative.
 
 Negative language includes (but is not limited to): sad, worried, frustrated, tired, stressed, anxious, disappointed, difficult, struggling, drained, unmotivated, exhausted, overwhelmed, upset, angry, irritable, hopeless, hollow, numb, heavy, tense, uneasy, off, blah, stuck, restless, foggy, burned out, hate, nothing feels right, can't, don't, not good, wasn't happy, never feels, on edge, falling apart.`
 
@@ -225,8 +227,8 @@ Return ONLY a valid JSON object in this format with no markdown fences:
     if (!moodJson.mood_level) {
       const s = moodJson.mood_score
       if (s >= 0.7) moodJson.mood_level = 'Extremely Positive'
-      else if (s >= 0.1) moodJson.mood_level = 'Positive'
-      else if (s >= -0.1) moodJson.mood_level = 'Neutral'
+      else if (s >= 0.05) moodJson.mood_level = 'Positive'
+      else if (s >= -0.05) moodJson.mood_level = 'Neutral'
       else if (s >= -0.7) moodJson.mood_level = 'Negative'
       else moodJson.mood_level = 'Extremely Negative'
     }
@@ -235,24 +237,29 @@ Return ONLY a valid JSON object in this format with no markdown fences:
     const durationSeconds = Math.max(1, Math.round(audio.size / 12000))
 
     console.log('[process-recording] Inserting journal entry')
+    const entryInsertData: Record<string, unknown> = {
+      user_id: userId,
+      audio_url: audioPath,
+      raw_transcript: transcript,
+      cleaned_entry: journalJson.entry,
+      entry_title: journalJson.title,
+      duration_seconds: durationSeconds,
+      mood_primary: moodJson.mood_primary,
+      mood_score: moodJson.mood_score,
+      mood_tags: moodJson.mood_tags,
+      mood_level: moodJson.mood_level,
+      themes: [],
+      recorded_at: recordedAt,
+      word_count: journalJson.entry.split(/\s+/).length,
+    }
+    // Only include mood_reasoning when non-null so the INSERT succeeds even if
+    // the column hasn't been added to the DB yet (migration not yet applied).
+    if (moodJson.mood_reasoning != null) {
+      entryInsertData.mood_reasoning = moodJson.mood_reasoning
+    }
     const { data: entry, error: entryErr } = await supabase
       .from('journal_entries')
-      .insert({
-        user_id: userId,
-        audio_url: audioPath,
-        raw_transcript: transcript,
-        cleaned_entry: journalJson.entry,
-        entry_title: journalJson.title,
-        duration_seconds: durationSeconds,
-        mood_primary: moodJson.mood_primary,
-        mood_score: moodJson.mood_score,
-        mood_tags: moodJson.mood_tags,
-        mood_level: moodJson.mood_level,
-        mood_reasoning: moodJson.mood_reasoning ?? null,
-        themes: [],
-        recorded_at: recordedAt,
-        word_count: journalJson.entry.split(/\s+/).length,
-      })
+      .insert(entryInsertData)
       .select('*')
       .single()
 
@@ -262,16 +269,19 @@ Return ONLY a valid JSON object in this format with no markdown fences:
     }
 
     console.log('[process-recording] Inserting mood history', { entryId: entry.id })
-    const { error: moodError } = await supabase.from('mood_history').insert({
+    const moodHistoryInsertData: Record<string, unknown> = {
       user_id: userId,
       entry_id: entry.id,
       mood_primary: moodJson.mood_primary,
       mood_score: moodJson.mood_score,
       mood_tags: moodJson.mood_tags,
       mood_level: moodJson.mood_level,
-      mood_reasoning: moodJson.mood_reasoning ?? null,
       recorded_at: recordedAt,
-    })
+    }
+    if (moodJson.mood_reasoning != null) {
+      moodHistoryInsertData.mood_reasoning = moodJson.mood_reasoning
+    }
+    const { error: moodError } = await supabase.from('mood_history').insert(moodHistoryInsertData)
     if (moodError) {
       console.error('[process-recording] Mood insert failed', { error: moodError.message, entryId: entry.id })
       throw new Error('Failed to save mood history.')

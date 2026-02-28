@@ -23,8 +23,8 @@ const moodLevels: { level: MoodLevel; color: string; bg: string; border: string;
 
 function scoreMoodLevel(score: number): MoodLevel {
   if (score >= 0.7) return 'Extremely Positive'
-  if (score >= 0.1) return 'Positive'
-  if (score >= -0.1) return 'Neutral'
+  if (score >= 0.05) return 'Positive'
+  if (score >= -0.05) return 'Neutral'
   if (score >= -0.7) return 'Negative'
   return 'Extremely Negative'
 }
@@ -89,8 +89,11 @@ export function MoodDashboardPage() {
       if (!groups[dayKey]) {
         groups[dayKey] = { date: dayKey, level, score: Number(point.mood_score ?? 0), primary: point.mood_primary, count: 1 }
       } else {
-        groups[dayKey].count += 1
-        groups[dayKey].score = (groups[dayKey].score + Number(point.mood_score ?? 0)) / 2
+        const oldCount = groups[dayKey].count
+        const newCount = oldCount + 1
+        groups[dayKey].count = newCount
+        // Welford-style running mean: avoids re-summing all values each iteration
+        groups[dayKey].score = (groups[dayKey].score * oldCount + Number(point.mood_score ?? 0)) / newCount
         groups[dayKey].level = scoreMoodLevel(groups[dayKey].score)
         groups[dayKey].primary = point.mood_primary
       }
@@ -153,9 +156,9 @@ export function MoodDashboardPage() {
                     </linearGradient>
                   </defs>
                   <ReferenceArea y1={0.7} y2={1} fill={isDark ? '#064e3b' : '#d1f5de'} fillOpacity={0.5} />
-                  <ReferenceArea y1={0.1} y2={0.7} fill={isDark ? '#14532d' : '#e4f5ea'} fillOpacity={0.5} />
-                  <ReferenceArea y1={-0.1} y2={0.1} fill={isDark ? '#451a03' : '#f5f0d1'} fillOpacity={0.5} />
-                  <ReferenceArea y1={-0.7} y2={-0.1} fill={isDark ? '#450a0a' : '#f5e0d8'} fillOpacity={0.5} />
+                  <ReferenceArea y1={0.05} y2={0.7} fill={isDark ? '#14532d' : '#e4f5ea'} fillOpacity={0.5} />
+                  <ReferenceArea y1={-0.05} y2={0.05} fill={isDark ? '#451a03' : '#f5f0d1'} fillOpacity={0.5} />
+                  <ReferenceArea y1={-0.7} y2={-0.05} fill={isDark ? '#450a0a' : '#f5e0d8'} fillOpacity={0.5} />
                   <ReferenceArea y1={-1} y2={-0.7} fill={isDark ? '#3b0000' : '#f5d1d1'} fillOpacity={0.5} />
                   <CartesianGrid stroke={isDark ? '#334155' : '#e5ddd4'} strokeDasharray="3 3" />
                   <XAxis dataKey="day" tick={{ fill: isDark ? '#94a3b8' : '#7a7188', fontSize: 11 }} minTickGap={24} />
